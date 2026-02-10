@@ -47,6 +47,27 @@ app.use("/feature", featureRouter);
 app.use("/transaction", transactionRouter);
 app.use("/webhook", webhookRouter);
 
+// API Documentation with Scalar
+const { apiReference } = require("@scalar/express-api-reference");
+const fs = require("fs");
+const yaml = require("js-yaml");
+
+const openApiSpec = yaml.load(
+	fs.readFileSync(path.join(__dirname, "openapi.yaml"), "utf8"),
+);
+
+app.use(
+	"/api-docs",
+	apiReference({
+		spec: {
+			content: openApiSpec,
+		},
+		theme: "purple",
+		layout: "modern",
+		showSidebar: true,
+	}),
+);
+
 // init DB connection
 AppDataSource.initialize()
 	.then(() => {
