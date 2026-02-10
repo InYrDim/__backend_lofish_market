@@ -3,16 +3,16 @@ info:
   title: Lofish Market API
   version: 1.0.0
   description: |
-    API untuk sistem Point of Sale (POS) Lofish Market.
+    API untuk sistem Point of Sale (POS) **Lofish Market**.
 
-    ## Authentication
-    Semua endpoint (kecuali `/login` dan `/webhook/*`) memerlukan Bearer token authentication.
-
+    Semua endpoint (kecuali `/login` dan `/webhook/*`) memerlukan **Bearer token** authentication.
     Token didapatkan dari endpoint `/login` dan harus disertakan di header:
     ```
     Authorization: Bearer YOUR_TOKEN_HERE
     ```
 
+    Setiap endpoint juga dilindungi oleh sistem **permission** berbasis role.
+    Jika user tidak memiliki izin yang sesuai, server akan mengembalikan `403 Forbidden`.
   contact:
     name: API Support
     email: support@lofishmarket.com
@@ -23,27 +23,136 @@ servers:
   - url: https://api.lofishmarket.com
     description: Production server
 
+# ---------------------------------------------------------------------------
+# Tags
+# ---------------------------------------------------------------------------
 tags:
   - name: Authentication
-    description: Login and session management
-  - name: Transactions
-    description: Transaction/selling operations
-  - name: Products
-    description: Product and stock management
-  - name: Users
-    description: User and role management
-  - name: Webhooks
-    description: External webhook endpoints
+    description: Login, logout, dan manajemen sesi pengguna.
+  - name: Selling
+    description: Operasi transaksi penjualan (checkout, daftar, detail).
+  - name: Purchase
+    description: Operasi transaksi pembelian/pengadaan barang.
+  - name: Product
+    description: Manajemen produk, kategori, grade, dan ukuran.
+  - name: Service
+    description: Manajemen layanan/jasa.
+  - name: Stock
+    description: Manajemen stok dan stock opname.
+  - name: Price
+    description: Manajemen harga produk.
+  - name: User Management
+    description: Manajemen pengguna, role, dan permission.
+  - name: Supplier
+    description: Manajemen data supplier.
+  - name: Member
+    description: Manajemen data member/pelanggan.
+  - name: Feature
+    description: Profil toko, konfigurasi aplikasi, dan kategori aplikasi.
+  - name: WebSocket
+    description: |
+      Koneksi WebSocket untuk menerima notifikasi real-time dari server.
 
+      **URL Koneksi:**
+      ```
+      ws://localhost:3000?token=SESSION_TOKEN
+      ```
+
+      **Autentikasi:**
+      Token sesi (dari endpoint `/login`) dikirim sebagai query parameter `token`.
+      Server memvalidasi token melalui database session dan verifikasi JWT.
+
+      **Close Codes:**
+      | Code | Alasan |
+      |------|--------|
+      | `4001` | Token tidak diberikan, session tidak valid, atau autentikasi gagal |
+
+      **Format Pesan (Server → Client):**
+      Semua pesan dikirim dalam format JSON:
+      ```json
+      {
+        "type": "event_type",
+        "data": { ... },
+        "timestamp": "2024-01-15T10:30:00.000Z"
+      }
+      ```
+
+      **Event Types:**
+
+      | Type | Deskripsi | Data Fields |
+      |------|-----------|-------------|
+      | `connected` | Koneksi berhasil | `clientId` |
+      | `payment.success` | Pembayaran QRIS berhasil (dari Xendit webhook) | `reference_id`, `amount`, `status`, `qr_id` |
+      | `payment.expired` | Pembayaran QRIS kedaluwarsa | `reference_id`, `status`, `qr_id` |
+
+      **Filter:**
+      Pesan broadcast dapat difilter berdasarkan `marketId` dan `userId` dari JWT payload klien.
+  - name: Webhook
+    description: |
+      Endpoint webhook untuk menerima callback dari layanan pihak ketiga (Xendit).
+
+      **Keamanan:**
+      Webhook tidak menggunakan Bearer token. Verifikasi dilakukan melalui header `x-callback-token`
+      yang dicocokkan dengan environment variable `XENDIT_WEBHOOK_TOKEN`.
+
+      **Alur:**
+      1. Xendit mengirim HTTP POST ke `/webhook/xendit` saat terjadi event pembayaran.
+      2. Server memverifikasi `x-callback-token` header.
+      3. Server memproses event (update database, broadcast via WebSocket).
+      4. Server selalu mengembalikan `200 OK` untuk mencegah retry dari Xendit.
+
+x-tagGroups:
+  - name: 🔐 Authentication
+    tags:
+      - Authentication
+  - name: 💰 Transaksi
+    tags:
+      - Selling
+      - Purchase
+  - name: 📦 Produk & Inventori
+    tags:
+      - Product
+      - Service
+      - Stock
+      - Price
+  - name: 👤 Pengguna
+    tags:
+      - User Management
+      - Supplier
+      - Member
+  - name: ⚙️ Fitur
+    tags:
+      - Feature
+  - name: 🔌 Web Services
+    tags:
+      - WebSocket
+      - Webhook
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+security:
+  - bearerAuth: []
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Session token dari endpoint /login
+      description: Session token dari endpoint `/login`.
+
+    xenditCallbackToken:
+      type: apiKey
+      in: header
+      name: x-callback-token
+      description: Token verifikasi callback dari Xendit.
 
   schemas:
+    # --- Common ---
     Error:
       type: object
       properties:
@@ -70,6 +179,7 @@ components:
           type: integer
           example: 8
 
+    # --- User Domain ---
     User:
       type: object
       properties:
@@ -93,16 +203,7 @@ components:
           type: string
           example: "Toko Pusat"
 
-    PaymentMethod:
-      type: object
-      properties:
-        id:
-          type: string
-          example: "pm01"
-        name:
-          type: string
-          example: "QRIS"
-
+    # --- Product Domain ---
     Stock:
       type: object
       properties:
@@ -126,6 +227,17 @@ components:
           type: number
           example: 25000
 
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "pm01"
+        name:
+          type: string
+          example: "QRIS"
+
+    # --- Transaction Domain ---
     TransactionItem:
       type: object
       properties:
@@ -188,16 +300,143 @@ components:
           items:
             $ref: "#/components/schemas/TransactionItem"
 
-security:
-  - bearerAuth: []
+    # --- WebSocket ---
+    WebSocketMessage:
+      type: object
+      description: Format pesan yang dikirim server ke client melalui WebSocket.
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - connected
+            - payment.success
+            - payment.expired
+          description: Tipe event.
+        data:
+          type: object
+          description: Payload data (berbeda per tipe event).
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
 
+    WebSocketConnectedData:
+      type: object
+      properties:
+        clientId:
+          type: string
+          example: "user123_1705312200000"
+          description: ID unik client yang terdiri dari userId dan timestamp.
+
+    WebSocketPaymentSuccessData:
+      type: object
+      properties:
+        reference_id:
+          type: string
+          example: "abc123xyz"
+          description: ID transaksi yang dibayar.
+        amount:
+          type: number
+          example: 150000
+          description: Jumlah pembayaran.
+        status:
+          type: string
+          example: "PAID"
+        qr_id:
+          type: string
+          example: "qr_xxx_123"
+
+    WebSocketPaymentExpiredData:
+      type: object
+      properties:
+        reference_id:
+          type: string
+          example: "abc123xyz"
+          description: ID transaksi yang kedaluwarsa.
+        status:
+          type: string
+          example: "EXPIRED"
+        qr_id:
+          type: string
+          example: "qr_xxx_123"
+
+    # --- Webhook ---
+    XenditWebhookPayload:
+      type: object
+      description: Payload callback dari Xendit.
+      required:
+        - event
+        - data
+      properties:
+        event:
+          type: string
+          enum:
+            - qr.payment
+            - payment.paid
+            - payment.expired
+            - qr.expired
+          description: Tipe event dari Xendit.
+          example: "qr.payment"
+        data:
+          type: object
+          properties:
+            reference_id:
+              type: string
+              example: "abc123xyz"
+              description: ID referensi transaksi.
+            external_id:
+              type: string
+              example: "ext_abc123"
+              description: ID external (alternatif dari reference_id).
+            amount:
+              type: number
+              example: 150000
+              description: Jumlah pembayaran.
+            status:
+              type: string
+              enum:
+                - SUCCEEDED
+                - PAID
+                - EXPIRED
+              example: "SUCCEEDED"
+            qr_id:
+              type: string
+              example: "qr_xxx_123"
+              description: ID QR code dari Xendit.
+
+  responses:
+    Unauthorized:
+      description: Token tidak valid atau tidak diberikan.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: "Token invalid atau expired"
+            login: false
+
+    Forbidden:
+      description: User tidak memiliki izin untuk operasi ini.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            message: "Do not have permission for this operation."
+            login: true
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
 paths:
+  # ==================== AUTHENTICATION ====================
   /login:
     post:
-      tags:
-        - Authentication
-      summary: User login
-      description: Authenticate user and get session token
+      tags: [Authentication]
+      summary: Login pengguna
+      description: Autentikasi pengguna dan mendapatkan session token.
       security: []
       requestBody:
         required: true
@@ -205,9 +444,7 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - username
-                - password
+              required: [username, password]
               properties:
                 username:
                   type: string
@@ -217,7 +454,7 @@ paths:
                   example: "password123"
       responses:
         "200":
-          description: Login successful
+          description: Login berhasil
           content:
             application/json:
               schema:
@@ -226,65 +463,75 @@ paths:
                   token:
                     type: string
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    description: Session token untuk autentikasi API dan WebSocket.
                   user:
                     $ref: "#/components/schemas/User"
         "401":
-          description: Invalid credentials
+          description: Kredensial tidak valid
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /logout:
+    post:
+      tags: [Authentication]
+      summary: Logout pengguna
+      description: Menghapus session aktif pengguna.
+      responses:
+        "200":
+          description: Logout berhasil
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ==================== SELLING TRANSACTIONS ====================
   /transaction/selling/list:
     get:
-      tags:
-        - Transactions
-      summary: Get transaction list
-      description: Get paginated list of transactions with filtering options
+      tags: [Selling]
+      summary: Daftar transaksi penjualan
+      description: Mendapatkan daftar transaksi penjualan dengan paginasi dan filter.
       parameters:
         - name: page
           in: query
           schema:
             type: integer
             default: 1
-          description: Page number
         - name: limit
           in: query
           schema:
             type: integer
             default: 20
-          description: Items per page
         - name: start_date
           in: query
           schema:
             type: string
             format: date
-          description: Filter from date (YYYY-MM-DD)
+          description: Filter dari tanggal (YYYY-MM-DD)
         - name: end_date
           in: query
           schema:
             type: string
             format: date
-          description: Filter to date (YYYY-MM-DD)
+          description: Filter sampai tanggal (YYYY-MM-DD)
         - name: is_paid
           in: query
           schema:
             type: string
             enum: ["1", "2", "3"]
-          description: Payment status (1=overview, 2=unpaid, 3=paid)
+          description: "Status pembayaran: 1=overview, 2=unpaid, 3=paid"
         - name: user_id
           in: query
           schema:
             type: string
-          description: Filter by user/cashier
+          description: Filter berdasarkan kasir
         - name: market_id
           in: query
           schema:
             type: string
-          description: Filter by market/store
+          description: Filter berdasarkan toko
       responses:
         "200":
-          description: Success
+          description: Berhasil
           content:
             application/json:
               schema:
@@ -297,45 +544,18 @@ paths:
                   pagination:
                     $ref: "#/components/schemas/Pagination"
         "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /transaction/selling/byid/{id}:
-    get:
-      tags:
-        - Transactions
-      summary: Get transaction by ID
-      description: Get detailed transaction information including items
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Transaction ID
-      responses:
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Transaction"
-        "404":
-          description: Transaction not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /transaction/selling/create:
     post:
-      tags:
-        - Transactions
-      summary: Create new transaction
-      description: Create a new selling transaction (checkout)
+      tags: [Selling]
+      summary: Buat transaksi penjualan baru
+      description: |
+        Membuat transaksi penjualan baru (checkout).
+        Jika metode pembayaran QRIS, transaksi akan dibuat dengan status `is_paid=2`
+        dan akan diupdate otomatis melalui webhook Xendit setelah pembayaran berhasil.
       requestBody:
         required: true
         content:
@@ -379,7 +599,7 @@ paths:
                   example: '[{"stock_id":"stock001","qty":2,"price":25000,"total_price":50000}]'
       responses:
         "201":
-          description: Transaction created
+          description: Transaksi berhasil dibuat
           content:
             application/json:
               schema:
@@ -391,51 +611,1002 @@ paths:
                   data:
                     $ref: "#/components/schemas/Transaction"
         "400":
-          description: Invalid request
+          description: Request tidak valid
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
+  /transaction/selling/update/{id}:
+    patch:
+      tags: [Selling]
+      summary: Update transaksi penjualan
+      description: Mengupdate data transaksi penjualan yang ada.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaksi berhasil diupdate
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Transaksi tidak ditemukan
+
+  /transaction/selling/delete/{id}:
+    delete:
+      tags: [Selling]
+      summary: Hapus transaksi penjualan
+      description: Menghapus transaksi penjualan secara permanen.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Transaksi berhasil dihapus
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ==================== PURCHASE TRANSACTIONS ====================
+  /transaction/purchase/list:
+    get:
+      tags: [Purchase]
+      summary: Daftar transaksi pembelian
+      description: Mendapatkan daftar transaksi pembelian/pengadaan barang.
+      responses:
+        "200":
+          description: Berhasil
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transaction/purchase/byid/{id}:
+    get:
+      tags: [Purchase]
+      summary: Detail transaksi pembelian
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+        "404":
+          description: Tidak ditemukan
+
+  /transaction/purchase/create:
+    post:
+      tags: [Purchase]
+      summary: Buat transaksi pembelian baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transaction/purchase/update/{id}:
+    patch:
+      tags: [Purchase]
+      summary: Update transaksi pembelian
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /transaction/purchase/delete/{id}:
+    delete:
+      tags: [Purchase]
+      summary: Hapus transaksi pembelian
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  # ==================== PRODUCTS ====================
+  /product/product/list:
+    get:
+      tags: [Product]
+      summary: Daftar produk
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/product/byid/{id}:
+    get:
+      tags: [Product]
+      summary: Detail produk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/product/create:
+    post:
+      tags: [Product]
+      summary: Tambah produk baru
+      description: Membuat produk baru. Mendukung upload gambar via `multipart/form-data`.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Gambar produk
+      responses:
+        "201":
+          description: Produk berhasil dibuat
+
+  /product/product/update/{id}:
+    patch:
+      tags: [Product]
+      summary: Update produk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /product/product/delete/{id}:
+    delete:
+      tags: [Product]
+      summary: Hapus produk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  /product/product/soft-delete/{id}:
+    delete:
+      tags: [Product]
+      summary: Soft-delete produk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil di-soft-delete
+
+  # ==================== SERVICES ====================
+  /product/service/list:
+    get:
+      tags: [Service]
+      summary: Daftar layanan
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/service/byid/{id}:
+    get:
+      tags: [Service]
+      summary: Detail layanan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/service/create:
+    post:
+      tags: [Service]
+      summary: Tambah layanan baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /product/service/update/{id}:
+    patch:
+      tags: [Service]
+      summary: Update layanan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /product/service/delete/{id}:
+    delete:
+      tags: [Service]
+      summary: Hapus layanan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  # ==================== STOCK ====================
+  /product/stock/list:
+    get:
+      tags: [Stock]
+      summary: Daftar stok
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/stock/byid/{id}:
+    get:
+      tags: [Stock]
+      summary: Detail stok
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/stock/create:
+    post:
+      tags: [Stock]
+      summary: Tambah stok baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /product/stock/update/{id}:
+    patch:
+      tags: [Stock]
+      summary: Update stok
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /product/stock/delete/{id}:
+    delete:
+      tags: [Stock]
+      summary: Hapus stok
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  /product/stock-opname/list:
+    get:
+      tags: [Stock]
+      summary: Daftar stock opname
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/stock-opname/create:
+    post:
+      tags: [Stock]
+      summary: Buat stock opname baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  # ==================== PRICE ====================
+  /product/price/list:
+    get:
+      tags: [Price]
+      summary: Daftar harga
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/price/byid/{id}:
+    get:
+      tags: [Price]
+      summary: Detail harga
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/price/byproduct/{id}:
+    get:
+      tags: [Price]
+      summary: Harga berdasarkan produk
+      description: Mendapatkan semua harga yang terkait dengan produk tertentu.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Product ID
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/price/getprice:
+    post:
+      tags: [Price]
+      summary: Ambil harga spesifik
+      description: Mendapatkan harga berdasarkan kriteria tertentu.
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/price/create:
+    post:
+      tags: [Price]
+      summary: Tambah harga baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /product/price/update/{id}:
+    patch:
+      tags: [Price]
+      summary: Update harga
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /product/price/delete/{id}:
+    delete:
+      tags: [Price]
+      summary: Hapus harga
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  # ==================== CATEGORY, GRADE, SIZE ====================
+  /product/category/list:
+    get:
+      tags: [Product]
+      summary: Daftar kategori produk
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/category/create:
+    post:
+      tags: [Product]
+      summary: Tambah kategori
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /product/category/update/{id}:
+    patch:
+      tags: [Product]
+      summary: Update kategori
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /product/category/delete/{id}:
+    delete:
+      tags: [Product]
+      summary: Hapus kategori
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  /product/grade/list:
+    get:
+      tags: [Product]
+      summary: Daftar grade produk
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/grade/create:
+    post:
+      tags: [Product]
+      summary: Tambah grade
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /product/size/list:
+    get:
+      tags: [Product]
+      summary: Daftar ukuran produk
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/size/create:
+    post:
+      tags: [Product]
+      summary: Tambah ukuran
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /product/reject/list:
+    get:
+      tags: [Product]
+      summary: Daftar reject/barang cacat
+      responses:
+        "200":
+          description: Berhasil
+
+  /product/reject/create:
+    post:
+      tags: [Product]
+      summary: Tambah data reject
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  # ==================== USER MANAGEMENT ====================
+  /user/user/list:
+    get:
+      tags: [User Management]
+      summary: Daftar pengguna
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/user/byid/{id}:
+    get:
+      tags: [User Management]
+      summary: Detail pengguna
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/user/create:
+    post:
+      tags: [User Management]
+      summary: Tambah pengguna baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /user/user/update/{id}:
+    patch:
+      tags: [User Management]
+      summary: Update pengguna
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /user/user/delete/{id}:
+    delete:
+      tags: [User Management]
+      summary: Hapus pengguna
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  /user/role/list:
+    get:
+      tags: [User Management]
+      summary: Daftar role
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/role/create:
+    post:
+      tags: [User Management]
+      summary: Tambah role baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /user/role/update/{id}:
+    patch:
+      tags: [User Management]
+      summary: Update role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /user/role/delete/{id}:
+    delete:
+      tags: [User Management]
+      summary: Hapus role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  /user/permission/list:
+    get:
+      tags: [User Management]
+      summary: Daftar permission
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/permission/create:
+    post:
+      tags: [User Management]
+      summary: Tambah permission baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /user/has-permit/list:
+    get:
+      tags: [User Management]
+      summary: Daftar izin yang dimiliki role
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/has-permit/edit:
+    post:
+      tags: [User Management]
+      summary: Edit izin role
+      description: Mengatur permission yang dimiliki oleh suatu role.
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /user/session/list:
+    get:
+      tags: [User Management]
+      summary: Daftar session aktif
+      responses:
+        "200":
+          description: Berhasil
+
+  # ==================== SUPPLIER ====================
+  /user/supplier/list:
+    get:
+      tags: [Supplier]
+      summary: Daftar supplier
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/supplier/byid/{id}:
+    get:
+      tags: [Supplier]
+      summary: Detail supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/supplier/create:
+    post:
+      tags: [Supplier]
+      summary: Tambah supplier baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /user/supplier/update/{id}:
+    patch:
+      tags: [Supplier]
+      summary: Update supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /user/supplier/delete/{id}:
+    delete:
+      tags: [Supplier]
+      summary: Hapus supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  # ==================== MEMBER ====================
+  /user/member/list:
+    get:
+      tags: [Member]
+      summary: Daftar member
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/member/byid/{id}:
+    get:
+      tags: [Member]
+      summary: Detail member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil
+
+  /user/member/create:
+    post:
+      tags: [Member]
+      summary: Tambah member baru
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /user/member/update/{id}:
+    patch:
+      tags: [Member]
+      summary: Update member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /user/member/delete/{id}:
+    delete:
+      tags: [Member]
+      summary: Hapus member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+
+  # ==================== FEATURE ====================
+  /feature/profile/list:
+    get:
+      tags: [Feature]
+      summary: Daftar profil toko
+      responses:
+        "200":
+          description: Berhasil
+
+  /feature/profile/create:
+    post:
+      tags: [Feature]
+      summary: Tambah profil toko
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /feature/profile/update/{id}:
+    patch:
+      tags: [Feature]
+      summary: Update profil toko
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+
+  /feature/cat-app/list:
+    get:
+      tags: [Feature]
+      summary: Daftar kategori aplikasi
+      responses:
+        "200":
+          description: Berhasil
+
+  /feature/cat-app/create:
+    post:
+      tags: [Feature]
+      summary: Tambah kategori aplikasi
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /feature/config/list:
+    get:
+      tags: [Feature]
+      summary: Daftar konfigurasi
+      responses:
+        "200":
+          description: Berhasil
+
+  /feature/config/create:
+    post:
+      tags: [Feature]
+      summary: Tambah konfigurasi
+      responses:
+        "201":
+          description: Berhasil dibuat
+
+  /feature/data-change/list:
+    get:
+      tags: [Feature]
+      summary: Daftar perubahan data
+      description: Audit log perubahan data di sistem.
+      responses:
+        "200":
+          description: Berhasil
+
+  /feature/data-receive/list:
+    get:
+      tags: [Feature]
+      summary: Daftar data diterima
+      responses:
+        "200":
+          description: Berhasil
+
+  # ==================== WEBSOCKET (Informational) ====================
+  /__websocket:
+    get:
+      tags: [WebSocket]
+      summary: Koneksi WebSocket (Informational)
+      description: |
+        > **Endpoint ini hanya untuk dokumentasi.** Koneksi WebSocket dilakukan secara langsung
+        > menggunakan protokol `ws://` atau `wss://`, bukan HTTP GET.
+
+        **Cara Menghubungkan:**
+        ```
+        ws://localhost:3000?token=YOUR_SESSION_TOKEN
+        ```
+
+        **Proses Autentikasi:**
+        1. Client mengirim koneksi WebSocket dengan `token` di query parameter.
+        2. Server mencari session di database berdasarkan token.
+        3. Server memverifikasi JWT payload dari session.
+        4. Jika berhasil, server mengirim pesan `connected` dengan `clientId`.
+        5. Jika gagal, koneksi ditutup dengan code `4001`.
+
+        **Pesan dari Server:**
+
+        Setelah terkoneksi, client akan menerima pesan JSON berikut:
+
+        **1. `connected`** — Konfirmasi koneksi berhasil
+        ```json
+        { "type": "connected", "clientId": "user123_1705312200000" }
+        ```
+
+        **2. `payment.success`** — Pembayaran QRIS berhasil
+        ```json
+        {
+          "type": "payment.success",
+          "data": {
+            "reference_id": "abc123xyz",
+            "amount": 150000,
+            "status": "PAID",
+            "qr_id": "qr_xxx_123"
+          },
+          "timestamp": "2024-01-15T10:30:00.000Z"
+        }
+        ```
+
+        **3. `payment.expired`** — Pembayaran QRIS kedaluwarsa
+        ```json
+        {
+          "type": "payment.expired",
+          "data": {
+            "reference_id": "abc123xyz",
+            "status": "EXPIRED",
+            "qr_id": "qr_xxx_123"
+          },
+          "timestamp": "2024-01-15T10:30:00.000Z"
+        }
+        ```
+      security: []
+      responses:
+        "101":
+          description: Switching Protocols — WebSocket connection established
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebSocketMessage"
+              examples:
+                connected:
+                  summary: Koneksi berhasil
+                  value:
+                    type: connected
+                    clientId: "user123_1705312200000"
+                paymentSuccess:
+                  summary: Pembayaran QRIS berhasil
+                  value:
+                    type: payment.success
+                    data:
+                      reference_id: "abc123xyz"
+                      amount: 150000
+                      status: "PAID"
+                      qr_id: "qr_xxx_123"
+                    timestamp: "2024-01-15T10:30:00.000Z"
+                paymentExpired:
+                  summary: Pembayaran QRIS kedaluwarsa
+                  value:
+                    type: payment.expired
+                    data:
+                      reference_id: "abc123xyz"
+                      status: "EXPIRED"
+                      qr_id: "qr_xxx_123"
+                    timestamp: "2024-01-15T10:30:00.000Z"
+
+  # ==================== WEBHOOK ====================
   /webhook/xendit:
     post:
-      tags:
-        - Webhooks
+      tags: [Webhook]
       summary: Xendit payment webhook
-      description: Receive payment notifications from Xendit
-      security: []
+      description: |
+        Endpoint untuk menerima notifikasi pembayaran dari Xendit.
+
+        **Alur Pemrosesan:**
+        1. Verifikasi `x-callback-token` header.
+        2. Proses event berdasarkan tipe:
+           - `qr.payment` / `payment.paid` → Update transaksi menjadi `is_paid=3` (paid) dan broadcast `payment.success` via WebSocket.
+           - `payment.expired` / `qr.expired` → Broadcast `payment.expired` via WebSocket.
+        3. Selalu mengembalikan `200 OK` untuk mencegah retry dari Xendit.
+
+        **Event Types yang Didukung:**
+
+        | Event | Aksi |
+        |-------|------|
+        | `qr.payment` | Update DB + broadcast `payment.success` |
+        | `payment.paid` | Update DB + broadcast `payment.success` |
+        | `payment.expired` | Broadcast `payment.expired` |
+        | `qr.expired` | Broadcast `payment.expired` |
+      security:
+        - xenditCallbackToken: []
       parameters:
         - name: x-callback-token
           in: header
           required: true
           schema:
             type: string
-          description: Xendit callback verification token
+          description: Token verifikasi callback dari Xendit (dicocokkan dengan `XENDIT_WEBHOOK_TOKEN`).
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                event:
-                  type: string
-                  example: "qr.payment"
-                data:
-                  type: object
-                  properties:
-                    reference_id:
-                      type: string
-                      example: "testing_id_123"
-                    amount:
-                      type: number
-                      example: 1500
-                    status:
-                      type: string
-                      example: "SUCCEEDED"
+              $ref: "#/components/schemas/XenditWebhookPayload"
+            examples:
+              qrPaymentSuccess:
+                summary: Pembayaran QRIS berhasil
+                value:
+                  event: "qr.payment"
+                  data:
+                    reference_id: "abc123xyz"
+                    amount: 150000
+                    status: "SUCCEEDED"
+                    qr_id: "qr_xxx_123"
+              paymentExpired:
+                summary: Pembayaran kedaluwarsa
+                value:
+                  event: "payment.expired"
+                  data:
+                    reference_id: "abc123xyz"
+                    status: "EXPIRED"
+                    qr_id: "qr_xxx_123"
       responses:
         "200":
-          description: Webhook received
+          description: Webhook diterima dan diproses
           content:
             application/json:
               schema:
@@ -444,9 +1615,29 @@ paths:
                   received:
                     type: boolean
                     example: true
+              examples:
+                success:
+                  summary: Berhasil diproses
+                  value:
+                    received: true
+                withError:
+                  summary: Diterima dengan error (tetap 200)
+                  value:
+                    received: true
+                    error: "Transaction not found"
         "401":
-          description: Invalid callback token
+          description: Token callback tidak valid
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                message: "Unauthorized"
+        "500":
+          description: XENDIT_WEBHOOK_TOKEN belum dikonfigurasi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                message: "Server configuration error"
