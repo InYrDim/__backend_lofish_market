@@ -121,8 +121,81 @@ exports.createTransaction = async (req, res) => {
 exports.sellingList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Selling);
-		const data = await repo.find();
-		res.json(data);
+		const detailRepo = AppDataSource.getRepository(SellingProductDetail);
+
+		// Query parameters for filtering
+		const {
+			page = 1,
+			limit = 20,
+			start_date,
+			end_date,
+			is_paid,
+			user_id,
+			market_id,
+		} = req.query;
+
+		// Build query
+		let query = repo
+			.createQueryBuilder("selling")
+			.leftJoinAndSelect("selling.user", "user")
+			.leftJoinAndSelect("selling.market", "market")
+			.leftJoinAndSelect("selling.payment", "payment")
+			.leftJoinAndSelect("selling.member", "member")
+			.leftJoinAndSelect("selling.voucher", "voucher")
+			.orderBy("selling.created_at", "DESC");
+
+		// Apply filters
+		if (start_date) {
+			query = query.andWhere("selling.created_at >= :start_date", {
+				start_date,
+			});
+		}
+		if (end_date) {
+			query = query.andWhere("selling.created_at <= :end_date", { end_date });
+		}
+		if (is_paid) {
+			query = query.andWhere("selling.is_paid = :is_paid", { is_paid });
+		}
+		if (user_id) {
+			query = query.andWhere("selling.user_id = :user_id", { user_id });
+		}
+		if (market_id) {
+			query = query.andWhere("selling.market_id = :market_id", { market_id });
+		}
+
+		// Pagination
+		const skip = (page - 1) * limit;
+		query = query.skip(skip).take(parseInt(limit));
+
+		// Get total count
+		const total = await query.getCount();
+
+		// Get data
+		const transactions = await query.getMany();
+
+		// Get items for each transaction
+		const transactionsWithItems = await Promise.all(
+			transactions.map(async (transaction) => {
+				const items = await detailRepo.find({
+					where: { selling: { id: transaction.id } },
+					relations: ["stock", "price"],
+				});
+				return {
+					...transaction,
+					items,
+				};
+			}),
+		);
+
+		res.json({
+			data: transactionsWithItems,
+			pagination: {
+				page: parseInt(page),
+				limit: parseInt(limit),
+				total,
+				totalPages: Math.ceil(total / limit),
+			},
+		});
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -136,6 +209,38 @@ exports.sellingCreate = async (req, res) => {
 		await repo.save(data);
 		res.json(data);
 	} catch (err) {
+		res.status(500).json({ message: err.message });
+	}
+};
+
+exports.sellingById = async (req, res) => {
+	try {
+		const repo = AppDataSource.getRepository(Selling);
+		const detailRepo = AppDataSource.getRepository(SellingProductDetail);
+		const id = req.params.id;
+
+		// Get transaction with relations
+		const transaction = await repo.findOne({
+			where: { id },
+			relations: ["user", "market", "payment", "member", "voucher"],
+		});
+
+		if (!transaction) {
+			return res.status(404).json({ message: "Transaction not found" });
+		}
+
+		// Get items
+		const items = await detailRepo.find({
+			where: { selling: { id } },
+			relations: ["stock", "price"],
+		});
+
+		res.json({
+			...transaction,
+			items,
+		});
+	} catch (err) {
+		console.error(err);
 		res.status(500).json({ message: err.message });
 	}
 };
