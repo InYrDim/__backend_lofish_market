@@ -42,6 +42,11 @@ router.get(
 	auth(["selling", "purchase"]),
 	transactionController.sellingList,
 );
+router.get(
+	"/selling/byid/:id",
+	auth(["selling", "purchase"]),
+	transactionController.sellingById,
+);
 router.post(
 	"/selling/create",
 	auth(["selling-edit", "purchase-edit"]),
