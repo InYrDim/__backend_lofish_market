@@ -14,6 +14,7 @@ var userRouter = require("./routes/user");
 var productRouter = require("./routes/product");
 var featureRouter = require("./routes/feature");
 var transactionRouter = require("./routes/transaction");
+var webhookRouter = require("./routes/webhook");
 
 var app = express();
 
@@ -44,6 +45,7 @@ app.use("/user", userRouter);
 app.use("/product", productRouter);
 app.use("/feature", featureRouter);
 app.use("/transaction", transactionRouter);
+app.use("/webhook", webhookRouter);
 
 // init DB connection
 AppDataSource.initialize()
