@@ -150,6 +150,9 @@ lofish-market/
 Buat file `.env` di root project dengan konfigurasi berikut:
 
 ```env
+## SERVER
+BACKEND_PORT=3000
+
 ## DATABASE
 DB_HOST=localhost
 DB_PORT=3306
@@ -189,7 +192,7 @@ npm start
 # Server berjalan di http://localhost:3000
 ```
 
-Port default adalah `3000`, bisa diubah melalui environment variable `PORT`.
+Port default adalah `3000`, bisa diubah melalui environment variable `BACKEND_PORT`.
 
 ---
 
