@@ -31,6 +31,10 @@ tags:
     description: Login, logout, dan manajemen sesi pengguna.
   - name: Selling
     description: Operasi transaksi penjualan (checkout, daftar, detail).
+  - name: Selling Product Detail
+    description: Detail produk dalam transaksi penjualan.
+  - name: Selling Service Detail
+    description: Detail layanan/jasa dalam transaksi penjualan.
   - name: Purchase
     description: Operasi transaksi pembelian/pengadaan barang.
   - name: Product
@@ -108,6 +112,8 @@ x-tagGroups:
   - name: 💰 Transaksi
     tags:
       - Selling
+      - Selling Product Detail
+      - Selling Service Detail
       - Purchase
   - name: 📦 Produk & Inventori
     tags:
@@ -261,6 +267,70 @@ components:
         price:
           $ref: "#/components/schemas/Price"
 
+    SellingProductDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "spd001"
+        qty:
+          type: integer
+          example: 2
+        mod_price:
+          type: number
+          example: 25000
+          description: Harga modifikasi (misal jika grade 3-4)
+        total_price:
+          type: number
+          example: 50000
+          description: "price × weight/pcs"
+        note:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        selling:
+          $ref: "#/components/schemas/Transaction"
+        stock:
+          $ref: "#/components/schemas/Stock"
+        price:
+          $ref: "#/components/schemas/Price"
+
+    SellingServiceDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "ssd001"
+        qty:
+          type: integer
+          example: 1
+        mod_price:
+          type: number
+          example: 15000
+        total_price:
+          type: number
+          example: 15000
+          description: "price × weight/pcs"
+        note:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        selling:
+          $ref: "#/components/schemas/Transaction"
+        service:
+          type: object
+          description: Referensi ke entity Service
+
     Transaction:
       type: object
       properties:
@@ -280,9 +350,44 @@ components:
         change_money:
           type: number
           example: 50000
-        is_paid:
+        total_weight_qty:
+          type: number
+          example: 1.5
+        totol_pcs_qty:
+          type: number
+          example: 10
+        price:
+          type: number
+          example: 200000
+          description: Total harga sebelum diskon/pajak
+        per_item_disc:
+          type: number
+          example: 0
+        voucher_disc:
+          type: number
+          example: 0
+        total_disc:
+          type: number
+          example: 0
+        tax_price:
+          type: number
+          example: 0
+        online_order:
           type: string
           enum: ["1", "2", "3"]
+          example: "1"
+          description: "1=offline, 2=offline, 3=other"
+        note:
+          type: string
+          nullable: true
+          example: "Catatan transaksi"
+        member:
+          $ref: "#/components/schemas/Member"
+        voucher:
+          $ref: "#/components/schemas/Voucher"
+        is_paid:
+          type: string
+          enum: ["1", "2", "3", "4"]
           example: "3"
           description: "1=overview, 2=unpaid, 3=paid"
         created_at:
@@ -583,6 +688,7 @@ paths:
                   example: 50000
                 is_paid:
                   type: string
+                  enum: ["1", "2", "3", "4"]
                   example: "3"
                 payment_method_id:
                   type: string
@@ -593,6 +699,43 @@ paths:
                 user_id:
                   type: string
                   example: "user123"
+                payment_id:
+                  type: string
+                  example: "xendit_123"
+                total_weight_qty:
+                  type: number
+                  example: 1.5
+                totol_pcs_qty:
+                  type: number
+                  example: 5
+                price:
+                  type: number
+                  example: 150000
+                per_item_disc:
+                  type: number
+                  example: 0
+                voucher_disc:
+                  type: number
+                  example: 0
+                total_disc:
+                  type: number
+                  example: 0
+                tax_price:
+                  type: number
+                  example: 0
+                online_order:
+                  type: string
+                  enum: ["1", "2", "3"]
+                  example: "1"
+                note:
+                  type: string
+                  example: "Catatan khusus"
+                member_id:
+                  type: string
+                  example: "member001"
+                voucher_id:
+                  type: string
+                  example: "vc001"
                 items:
                   type: string
                   description: JSON string array of items
@@ -652,6 +795,259 @@ paths:
       responses:
         "200":
           description: Transaksi berhasil dihapus
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ==================== SELLING PRODUCT DETAIL ====================
+  /transaction/selling/product/detail/list:
+    get:
+      tags: [Selling Product Detail]
+      summary: Daftar detail produk penjualan
+      description: Mendapatkan semua detail produk dari transaksi penjualan, dengan filter opsional.
+      parameters:
+        - name: selling_id
+          in: query
+          schema:
+            type: string
+          description: Filter berdasarkan ID transaksi penjualan
+        - name: market_id
+          in: query
+          schema:
+            type: string
+          description: Filter berdasarkan toko (via relasi selling)
+        - name: user_id
+          in: query
+          schema:
+            type: string
+          description: Filter berdasarkan kasir (via relasi selling)
+        - name: stock_id
+          in: query
+          schema:
+            type: string
+          description: Filter berdasarkan stok produk
+        - name: price_id
+          in: query
+          schema:
+            type: string
+          description: Filter berdasarkan harga produk
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SellingProductDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /transaction/selling/product/detail/create:
+    post:
+      tags: [Selling Product Detail]
+      summary: Tambah detail produk penjualan
+      description: Menambahkan detail produk ke transaksi penjualan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                selling_id:
+                  type: string
+                  example: "abc123xyz"
+                stock_id:
+                  type: string
+                  example: "stock001"
+                price_id:
+                  type: string
+                  example: "price001"
+                qty:
+                  type: integer
+                  example: 2
+                mod_price:
+                  type: number
+                  example: 25000
+                total_price:
+                  type: number
+                  example: 50000
+                note:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellingProductDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /transaction/selling/product/detail/update/{id}:
+    patch:
+      tags: [Selling Product Detail]
+      summary: Update detail produk penjualan
+      description: Mengupdate detail produk dalam transaksi penjualan.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                qty:
+                  type: integer
+                mod_price:
+                  type: number
+                total_price:
+                  type: number
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Detail tidak ditemukan
+
+  /transaction/selling/product/detail/delete/{id}:
+    delete:
+      tags: [Selling Product Detail]
+      summary: Hapus detail produk penjualan
+      description: Menghapus detail produk dari transaksi penjualan.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ==================== SELLING SERVICE DETAIL ====================
+  /transaction/selling/service/detail/list:
+    get:
+      tags: [Selling Service Detail]
+      summary: Daftar detail layanan penjualan
+      description: Mendapatkan semua detail layanan/jasa dari transaksi penjualan.
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SellingServiceDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /transaction/selling/service/detail/create:
+    post:
+      tags: [Selling Service Detail]
+      summary: Tambah detail layanan penjualan
+      description: Menambahkan detail layanan/jasa ke transaksi penjualan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                selling_id:
+                  type: string
+                  example: "abc123xyz"
+                service_id:
+                  type: string
+                  example: "svc001"
+                qty:
+                  type: integer
+                  example: 1
+                mod_price:
+                  type: number
+                  example: 15000
+                total_price:
+                  type: number
+                  example: 15000
+                note:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SellingServiceDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /transaction/selling/service/detail/update/{id}:
+    patch:
+      tags: [Selling Service Detail]
+      summary: Update detail layanan penjualan
+      description: Mengupdate detail layanan/jasa dalam transaksi penjualan.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                qty:
+                  type: integer
+                mod_price:
+                  type: number
+                total_price:
+                  type: number
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Berhasil diupdate
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Detail tidak ditemukan
+
+  /transaction/selling/service/detail/delete/{id}:
+    delete:
+      tags: [Selling Service Detail]
+      summary: Hapus detail layanan penjualan
+      description: Menghapus detail layanan/jasa dari transaksi penjualan.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Berhasil dihapus
         "401":
           $ref: "#/components/responses/Unauthorized"
 
