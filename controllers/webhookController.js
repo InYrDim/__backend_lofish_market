@@ -28,19 +28,14 @@ exports.handleXenditWebhook = async (req, res) => {
 		// Handle different event types
 		const eventType = event.event || event.type;
 
-		switch (eventType) {
-			case "qr.payment":
-			case "payment.paid":
+		console.log("Webhook: Event type:", eventType);
+
+		if (eventType === "qr.payment") {
+			if (event.data.status === "SUCCEEDED") {
 				await handlePaymentSuccess(event);
-				break;
-
-			case "payment.expired":
-			case "qr.expired":
+			} else if (event.data.status === "EXPIRED") {
 				await handlePaymentExpired(event);
-				break;
-
-			default:
-				console.log(`Webhook: Unhandled event type: ${eventType}`);
+			}
 		}
 
 		// Always respond 200 to acknowledge receipt

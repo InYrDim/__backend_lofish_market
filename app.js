@@ -26,7 +26,7 @@ app.use(logger("dev"));
 
 const corsOptions = {
 	allowedHeaders: ["Content-Type", "Authorization"],
-	methods: ["GET", "POST", "PUT", "DELETE"],
+	methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
 	origin:
 		process.env.PROD === "true"
 			? [process.env.PROD_ADMIN_URL, process.env.PROD_CLIENT_URL]

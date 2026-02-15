@@ -92,6 +92,7 @@ exports.login = async (req, res) => {
 			message: "Login berhasil",
 			token: "Bearer " + sessionToken,
 			user: {
+				id: user.id,
 				name: user.name,
 				role: user.role.id,
 				username: user.username,

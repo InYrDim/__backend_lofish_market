@@ -12,7 +12,7 @@ let wss = null;
  * @param {http.Server} server - The HTTP server instance
  */
 function init(server) {
-	wss = new WebSocket.Server({ server });
+	wss = new WebSocket.Server({ server, path: "/ws/transaction" });
 
 	wss.on("connection", async (ws, req) => {
 		console.log("WebSocket: New connection attempt");
@@ -20,6 +20,8 @@ function init(server) {
 		// Extract token from query string: ws://host?token=xxx
 		const url = new URL(req.url, `http://${req.headers.host}`);
 		const token = url.searchParams.get("token");
+
+		console.log("WebSocket: Token:", token);
 
 		if (!token) {
 			ws.close(4001, "Token required");
@@ -81,9 +83,9 @@ function init(server) {
  * @param {object} data - Event data
  * @param {object} filter - Optional filter { marketId, userId }
  */
-function broadcast(type, data, filter = {}) {
+function broadcast(event, data, filter = {}) {
 	const message = JSON.stringify({
-		type,
+		event,
 		data,
 		timestamp: new Date().toISOString(),
 	});
