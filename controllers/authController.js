@@ -1,143 +1,143 @@
-const AppDataSource = require('../config/data-source');
+const AppDataSource = require("../config/data-source");
 
-const User = require('../db/entities/User');
-const HasPermit = require('../db/entities/HasPermit');
-const Session = require('../db/entities/Session');
+const User = require("../db/entities/User");
+const HasPermit = require("../db/entities/HasPermit");
+const Session = require("../db/entities/Session");
 
-const userController = require('../controllers/userController');
+const userController = require("../controllers/userController");
 
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
-const generateId = require('../middleware/generateId');
+const generateId = require("../middleware/generateId");
 
 exports.login = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
+	try {
+		const { username, email, password } = req.body;
 
-    if (!password || (!username && !email)) {
-      return res.status(400).json({ message: "Username/email & password wajib diisi" });
-    }
+		if (!password || (!username && !email)) {
+			return res
+				.status(400)
+				.json({ message: "Username/email & password wajib diisi" });
+		}
 
-    const userRepo = AppDataSource.getRepository(User);
+		const userRepo = AppDataSource.getRepository(User);
 
-    // cari user berdasarkan username ATAU email
-    const user = await userRepo.findOne({
-      where: [
-        { username: username },
-        { email: email }
-      ]
-    });
+		// cari user berdasarkan username ATAU email
+		const user = await userRepo.findOne({
+			where: [{ username: username }, { email: email }],
+		});
 
-    if (!user) {
-      return res.status(401).json({ message: "User tidak ditemukan" });
-    }
+		if (!user) {
+			return res.status(401).json({ message: "User tidak ditemukan" });
+		}
 
-    const hasPermitRepo = AppDataSource.getRepository(HasPermit);
+		const hasPermitRepo = AppDataSource.getRepository(HasPermit);
 
-    const hasPermit = await hasPermitRepo.find({
-      where: {
-        // Filternya adalah: Di dalam relasi 'role', kolom 'id' harus sama dengan 'user.role_id'
-        role: {
-          id: user.role_id
-        }
-      },
-    });
+		const hasPermit = await hasPermitRepo.find({
+			where: {
+				// Filternya adalah: Di dalam relasi 'role', kolom 'id' harus sama dengan 'user.role_id'
+				role: {
+					id: user.role_id,
+				},
+			},
+		});
 
-    const permissionNames = hasPermit.map(item => item.permission.name);
+		const permissionNames = hasPermit.map((item) => item.permission.name);
 
-    // cek password
-    const match = await bcrypt.compare(password, user.password);
+		// cek password
+		const match = await bcrypt.compare(password, user.password);
 
-    if (!match) {
-      return res.status(401).json({ message: "Password salah" });
-    }
+		if (!match) {
+			return res.status(401).json({ message: "Password salah" });
+		}
 
-    // generate session token
-    const sessionToken = generateId(16);
+		// generate session token
+		const sessionToken = generateId(16);
 
-    // generate JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        role: user.role_id,
-        hasPermit: permissionNames
-      },
-      process.env.JWT_SECRET || "secretKey123", // ubah ke env
-      { expiresIn: '1d' }
-    );
+		// generate JWT token
+		const token = jwt.sign(
+			{
+				id: user.id,
+				name: user.name,
+				username: user.username,
+				email: user.email,
+				role: user.role_id,
+				hasPermit: permissionNames,
+			},
+			process.env.JWT_SECRET || "secretKey123", // ubah ke env
+			{ expiresIn: "1d" },
+		);
 
-    try {
-      const repo = AppDataSource.getRepository(Session);
-      const sessionData = {
-        id: sessionToken,
-        ip_address: req.ip ?? null,
-        user_agent: req.headers['user-agent'] ?? null,
-        payload: token,
-        user: user.id,
-        expired_at: new Date(Date.now() + (24*60*60*1000))
-      }
-      const create = repo.create(sessionData);
-      await repo.save(create);
-      console.log(create);
-    } catch (err) {
-      return res.status(500).json({ message: err.message });
-    }
+		try {
+			const repo = AppDataSource.getRepository(Session);
+			const sessionData = {
+				id: sessionToken,
+				ip_address: req.ip ?? null,
+				user_agent: req.headers["user-agent"] ?? null,
+				payload: token,
+				user: user.id,
+				expired_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+			};
+			const create = repo.create(sessionData);
+			await repo.save(create);
+			console.log(create);
+		} catch (err) {
+			return res.status(500).json({ message: err.message });
+		}
 
-    res.json({
-      message: "Login berhasil",
-      token: "Bearer " + sessionToken,
-      user: {
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        login: true,
-        hasPermit: permissionNames
-      }
-    });
+		console.log(user);
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
-  }
+		res.json({
+			message: "Login berhasil",
+			token: "Bearer " + sessionToken,
+			user: {
+				name: user.name,
+				role: user.role.id,
+				username: user.username,
+				email: user.email,
+				login: true,
+				hasPermit: permissionNames,
+			},
+		});
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ message: err.message });
+	}
 };
 
 exports.logout = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
+	try {
+		const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        message: "Token tidak ditemukan"
-      });
-    }
+		if (!authHeader || !authHeader.startsWith("Bearer ")) {
+			return res.status(401).json({
+				message: "Token tidak ditemukan",
+			});
+		}
 
-    const token = authHeader.split(" ")[1];
-    
-    const sessionData = await userController.sessionDelete(token);
+		const token = authHeader.split(" ")[1];
 
-    console.log("session deleted: "+sessionData);
+		const sessionData = await userController.sessionDelete(token);
 
-    return res.json({
-      message: "Logout berhasil",
-      login: false
-    });
+		console.log("session deleted: " + sessionData);
 
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({
-        message: err.message,
-        login: false
-      });
-    }
-    return res.status(500).json({
-      message: err.message,
-      login: false
-    });
-  }
+		return res.json({
+			message: "Logout berhasil",
+			login: false,
+		});
+	} catch (err) {
+		if (err.status) {
+			return res.status(err.status).json({
+				message: err.message,
+				login: false,
+			});
+		}
+		return res.status(500).json({
+			message: err.message,
+			login: false,
+		});
+	}
 };
 
 // exports.login = async (req, res) => {
@@ -163,25 +163,25 @@ exports.logout = async (req, res) => {
 //     }
 
 //     // // Ganti 'AppDataSource' dengan nama export data source Anda jika berbeda
-//     // const hasPermitRepo = AppDataSource.getRepository(HasPermit); 
+//     // const hasPermitRepo = AppDataSource.getRepository(HasPermit);
 
 //     // // Menggunakan Query Builder untuk JOIN
 //     // const hasPermit = await hasPermitRepo
 //     //     .createQueryBuilder("hasPermit") // Alias utama untuk tabel HasPermit
-        
+
 //     //     // 1. Melakukan JOIN ke tabel yang berelasi (misalnya, Permission)
 //     //     // Asumsi: Entity HasPermit memiliki relasi bernama 'permission' ke Entity Permission
 //     //     .leftJoinAndSelect("hasPermit.permission", "perm")
-        
+
 //     //     // 2. Menentukan kolom yang ingin diambil (Proyeksi)
 //     //     .select([
 //     //         "hasPermit.role_id", // Ambil role_id dari HasPermit
 //     //         "perm.name",    // Ambil kolom 'name' dari Entity Permission
 //     //     ])
-        
+
 //     //     // 3. Menambahkan klausa WHERE
 //     //     .where("hasPermit.role_id = :roleId", { roleId: user.role_id })
-        
+
 //     //     // 4. Jalankan Query dan ambil hasilnya
 //     //     .getMany(); // Gunakan getMany() jika hasilnya lebih dari satu baris
 

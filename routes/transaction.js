@@ -63,4 +63,48 @@ router.delete(
 	transactionController.sellingDelete,
 );
 
+// Selling Product Detail
+router.get(
+	"/selling/product/detail/list",
+	auth(["selling", "purchase"]),
+	transactionController.sellingProductDetailList,
+);
+router.post(
+	"/selling/product/detail/create",
+	auth(["selling-edit", "purchase-edit"]),
+	transactionController.sellingProductDetailCreate,
+);
+router.patch(
+	"/selling/product/detail/update/:id",
+	auth(["selling-edit", "purchase-edit"]),
+	transactionController.sellingProductDetailUpdate,
+);
+router.delete(
+	"/selling/product/detail/delete/:id",
+	auth(["selling-edit", "purchase-edit"]),
+	transactionController.sellingProductDetailDelete,
+);
+
+// Selling Service Detail
+router.get(
+	"/selling/service/detail/list",
+	auth(["selling", "purchase"]),
+	transactionController.sellingServiceDetailList,
+);
+router.post(
+	"/selling/service/detail/create",
+	auth(["selling-edit", "purchase-edit"]),
+	transactionController.sellingServiceDetailCreate,
+);
+router.patch(
+	"/selling/service/detail/update/:id",
+	auth(["selling-edit", "purchase-edit"]),
+	transactionController.sellingServiceDetailUpdate,
+);
+router.delete(
+	"/selling/service/detail/delete/:id",
+	auth(["selling-edit", "purchase-edit"]),
+	transactionController.sellingServiceDetailDelete,
+);
+
 module.exports = router;

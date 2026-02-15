@@ -32,6 +32,19 @@ exports.createTransaction = async (req, res) => {
 			market_id,
 			user_id,
 			items, // Array of { stock_id, qty, price, total_price, note }
+			// New fields
+			payment_id,
+			total_weight_qty,
+			totol_pcs_qty,
+			price,
+			per_item_disc,
+			voucher_disc,
+			total_disc,
+			tax_price,
+			online_order,
+			note,
+			member_id,
+			voucher_id,
 		} = req.body;
 
 		const parsedItems = JSON.parse(items);
@@ -58,6 +71,19 @@ exports.createTransaction = async (req, res) => {
 			payment: payment_method_id, // Relation
 			market: market_id, // Relation
 			user: user_id, // Relation
+			// New fields
+			payment_id,
+			total_weight_qty,
+			totol_pcs_qty,
+			price,
+			per_item_disc,
+			voucher_disc,
+			total_disc,
+			tax_price,
+			online_order,
+			note,
+			member: member_id, // Relation
+			voucher: voucher_id, // Relation
 		};
 
 		// Create and save selling within transaction
@@ -69,13 +95,15 @@ exports.createTransaction = async (req, res) => {
 			for (const item of parsedItems) {
 				// a. Create SellingProductDetail
 				const detailId = generateId(24);
+
+				// Example: [{"stock_id": "", "qty": 2, "price_id": "lelQV0FT9y9Ceh1G", "total_price": 20000, "mod_price": 10000, "note": ""}]
 				const detailData = {
 					id: detailId,
 					selling: sellingId, // Relation by ID
 					stock: item.stock || item.stock_id,
-					price: item.price || item.price_id,
+					price: item.price || item.price_id, // Relation Price ID
 					qty: item.qty,
-					mod_price: item.mod_price || item.price,
+					mod_price: item.mod_price,
 					total_price: item.total_price,
 					note: item.note,
 				};
@@ -303,7 +331,32 @@ exports.sellingSoftDelete = async (req, res) => {
 exports.sellingProductDetailList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(SellingProductDetail);
-		const data = await repo.find();
+		const { selling_id, market_id, user_id, stock_id, price_id } = req.query;
+
+		let query = repo
+			.createQueryBuilder("detail")
+			.leftJoinAndSelect("detail.selling", "selling")
+			.leftJoinAndSelect("detail.stock", "stock")
+			.leftJoinAndSelect("detail.price", "price")
+			.orderBy("detail.created_at", "DESC");
+
+		if (selling_id) {
+			query = query.andWhere("selling.id = :selling_id", { selling_id });
+		}
+		if (market_id) {
+			query = query.andWhere("selling.market_id = :market_id", { market_id });
+		}
+		if (user_id) {
+			query = query.andWhere("selling.user_id = :user_id", { user_id });
+		}
+		if (stock_id) {
+			query = query.andWhere("detail.stock_id = :stock_id", { stock_id });
+		}
+		if (price_id) {
+			query = query.andWhere("detail.price_id = :price_id", { price_id });
+		}
+
+		const data = await query.getMany();
 		res.json(data);
 	} catch (err) {
 		console.error(err);
