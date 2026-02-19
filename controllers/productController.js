@@ -211,89 +211,89 @@ exports.stockOpnameDetailCreate = async (req, res, next) => {
 };
 
 exports.stockOpnameDetailUpdate = async (req, res, next) => {
-    // --- Setup Path untuk Penyimpanan Manual ---
-    let fileName = null;
-    let oldFilePath = null; 
+  // --- Setup Path untuk Penyimpanan Manual ---
+  let fileName = null;
+  let oldFilePath = null;
 
-    if (!fs.existsSync(attachDir)) {
-        try {
-            fs.mkdirSync(attachDir, { recursive: true });
-        } catch (dirError) {
-            return next(dirError);
-        }
-    }
-
+  if (!fs.existsSync(attachDir)) {
     try {
-        const repo = AppDataSource.getRepository(StockOpnameDetail);
-        const id = req.params.id;
-
-        let existingData = await repo.findOne({ where: { id } }); // Gunakan nama variabel unik
-
-        if (!existingData) {
-            return res.status(404).json({ message: 'Data not found' });
-        }
-
-        if (existingData.attachment) {
-            oldFilePath = path.join(attachDir, existingData.attachment);
-        }
-
-        let updateData = req.body;
-
-        if (req.file) {
-
-            const fileExtension = path.extname(req.file.originalname);
-            fileName = `${id}${fileExtension}`; 
-
-            const newFilePath = path.join(attachDir, fileName);
-            
-            if (oldFilePath && fs.existsSync(oldFilePath)) {
-                fs.unlinkSync(oldFilePath);
-                console.log(`Old file cleaned up: ${existingData.attachment}`);
-            }
-
-            fs.writeFileSync(newFilePath, req.file.buffer);
-            
-            updateData.attachment = fileName;
-
-        } else if (req.body.attachment === null || req.body.attachment === undefined || req.body.attachment === '') {
-             if (oldFilePath && fs.existsSync(oldFilePath)) {
-                 fs.unlinkSync(oldFilePath);
-                 console.log(`Old file cleaned up: ${existingData.attachment}`);
-             }
-             updateData.attachment = null; // Set field image di DB menjadi NULL
-             
-        } else {
-          
-        }
-
-        const updatedData = repo.merge(existingData, updateData);
-
-        await repo.save(updatedData);
-
-        return res.status(200).json({ // Gunakan status 200 untuk update yang berhasil
-            message: "SO Product updated successfully",
-            data: updatedData
-        });
-
-    } catch (err) {
-        // --- Cleanup Gambar Baru Jika Gagal DB ---
-        // Jika file baru berhasil disimpan ke disk (fileName bukan null) 
-        // tetapi penyimpanan DB GAGAL, kita harus menghapus file baru tersebut.
-        if (fileName) { 
-            const filePathToClean = path.join(attachDir, fileName);
-            try {
-                if (fs.existsSync(filePathToClean)) {
-                    fs.unlinkSync(filePathToClean);
-                    console.log(`Cleaned up new file ${fileName} due to DB error.`);
-                }
-            } catch (unlinkError) {
-                console.error(`Failed to cleanup file: ${unlinkError.message}`);
-            }
-        }
-        
-        // Teruskan error ke error handler middleware
-        next(err);
+      fs.mkdirSync(attachDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
     }
+  }
+
+  try {
+    const repo = AppDataSource.getRepository(StockOpnameDetail);
+    const id = req.params.id;
+
+    let existingData = await repo.findOne({ where: { id } }); // Gunakan nama variabel unik
+
+    if (!existingData) {
+      return res.status(404).json({ message: 'Data not found' });
+    }
+
+    if (existingData.attachment) {
+      oldFilePath = path.join(attachDir, existingData.attachment);
+    }
+
+    let updateData = req.body;
+
+    if (req.file) {
+
+      const fileExtension = path.extname(req.file.originalname);
+      fileName = `${id}${fileExtension}`;
+
+      const newFilePath = path.join(attachDir, fileName);
+
+      if (oldFilePath && fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+        console.log(`Old file cleaned up: ${existingData.attachment}`);
+      }
+
+      fs.writeFileSync(newFilePath, req.file.buffer);
+
+      updateData.attachment = fileName;
+
+    } else if (req.body.attachment === null || req.body.attachment === undefined || req.body.attachment === '') {
+      if (oldFilePath && fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+        console.log(`Old file cleaned up: ${existingData.attachment}`);
+      }
+      updateData.attachment = null; // Set field image di DB menjadi NULL
+
+    } else {
+
+    }
+
+    const updatedData = repo.merge(existingData, updateData);
+
+    await repo.save(updatedData);
+
+    return res.status(200).json({ // Gunakan status 200 untuk update yang berhasil
+      message: "SO Product updated successfully",
+      data: updatedData
+    });
+
+  } catch (err) {
+    // --- Cleanup Gambar Baru Jika Gagal DB ---
+    // Jika file baru berhasil disimpan ke disk (fileName bukan null) 
+    // tetapi penyimpanan DB GAGAL, kita harus menghapus file baru tersebut.
+    if (fileName) {
+      const filePathToClean = path.join(attachDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+          console.log(`Cleaned up new file ${fileName} due to DB error.`);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+
+    // Teruskan error ke error handler middleware
+    next(err);
+  }
 };
 
 exports.stockOpnameDetailDelete = async (req, res) => {
@@ -316,6 +316,7 @@ exports.priceList = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Price);
     const data = await repo.find();
+    console.log(data);
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -346,7 +347,7 @@ exports.getPrice = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Price);
     const barcode = req.body.barcode;
-    const weight =  Number(req.body.weight);
+    const weight = Number(req.body.weight);
     const data = await repo.findOne({
       where: {
         barcode: barcode
@@ -359,7 +360,7 @@ exports.getPrice = async (req, res) => {
     const disc = data.disc;
 
     data.price = Math.ceil(((weight * selling) - disc) / 1000) * 1000;
-    
+
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -449,7 +450,7 @@ exports.priceDelete = async (req, res) => {
 exports.productList = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Product);
-    const data = await repo.find({ where: { is_show:'1',  is_non_stock:'1'} });
+    const data = await repo.find({ where: { is_show: '1', is_non_stock: '1' } });
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -518,7 +519,7 @@ exports.productCreate = async (req, res, next) => {
     const data = repo.create(productData);
     await repo.save(data); // 5. Simpan ke database
 
-    watch('product', 'INSERT', data, {image: `upload/product/${fileName}`});
+    watch('product', 'INSERT', data, { image: `upload/product/${fileName}` });
 
     // 6. Respon Sukses dan return
     return res.status(201).json({
@@ -547,167 +548,167 @@ exports.productCreate = async (req, res, next) => {
 };
 
 exports.productUpdate = async (req, res, next) => {
-    // --- Setup Path untuk Penyimpanan Manual ---
-    let fileName = null;
-    let oldImagePath = null; // Untuk menyimpan path gambar lama jika perlu dihapus
-    
-    // Pastikan folder 'product' ada
-    if (!fs.existsSync(productDir)) {
-        try {
-            fs.mkdirSync(productDir, { recursive: true });
-        } catch (dirError) {
-            return next(dirError);
-        }
-    }
+  // --- Setup Path untuk Penyimpanan Manual ---
+  let fileName = null;
+  let oldImagePath = null; // Untuk menyimpan path gambar lama jika perlu dihapus
 
+  // Pastikan folder 'product' ada
+  if (!fs.existsSync(productDir)) {
     try {
-        const repo = AppDataSource.getRepository(Product);
-        const id = req.params.id;
-
-        // 1. Find existing
-        let existingData = await repo.findOne({ where: { id } }); // Gunakan nama variabel unik
-
-        if (!existingData) {
-            return res.status(404).json({ message: 'Product not found' });
-        }
-        
-        // Simpan nama file lama (jika ada) sebelum merge
-        if (existingData.image) {
-            oldImagePath = path.join(productDir, existingData.image);
-        }
-
-        // --- Logika Update Gambar ---
-        let updateData = req.body; // Mulai dengan data dari body
-
-        if (req.file) {
-            // Ada file baru yang diunggah
-
-            const fileExtension = path.extname(req.file.originalname);
-            // Nama file baru menggunakan ID produk yang sudah ada
-            fileName = `${id}${fileExtension}`; 
-
-            const newFilePath = path.join(productDir, fileName);
-            
-            // Jika ada gambar lama, HAPUS GAMBAR LAMA (Tindakan 1)
-            if (oldImagePath && fs.existsSync(oldImagePath)) {
-                fs.unlinkSync(oldImagePath);
-                console.log(`Old file cleaned up: ${existingData.image}`);
-            }
-
-            // Tulis file baru ke disk (Tindakan 2)
-            fs.writeFileSync(newFilePath, req.file.buffer);
-            
-            // Masukkan nama file baru ke data update
-            updateData.image = fileName;
-
-        } else if (req.body.image === null || req.body.image === undefined) {
-             // Jika klien secara eksplisit mengirim image: null/undefined/'' 
-             // atau tidak mengirim req.file, dan ingin menghapus gambar
-             
-             // Catatan: Biasanya klien tidak mengirim image:null untuk penghapusan.
-             // Lebih baik menggunakan field terpisah seperti "delete_image: true"
-             
-             // Dalam skenario ini, kita berasumsi image: null berarti hapus gambar lama
-             if (oldImagePath && fs.existsSync(oldImagePath)) {
-                 fs.unlinkSync(oldImagePath);
-                 console.log(`Old file cleaned up: ${existingData.image}`);
-             }
-             updateData.image = null; // Set field image di DB menjadi NULL
-             
-        } else {
-            // Jika req.file KOSONG dan req.body tidak mengubah field 'image', 
-            // maka field image DIJAGA nilainya (tidak perlu diapa-apakan).
-            // Namun, karena repo.merge hanya menggabungkan req.body,
-            // dan req.body tidak berisi 'image', nilai lama akan dipertahankan.
-            updateData.image = existingData.image;
-        }
-
-
-        // 2. Merge request body (termasuk image baru/null jika ada) ke entity lama
-        // Gunakan updateData yang mungkin sudah dimodifikasi
-        const updatedData = repo.merge(existingData, updateData);
-
-        // 3. Save the updated entity
-        await repo.save(updatedData);
-
-        watch('product', 'UPDATE', updatedData, {image: `upload/product/${fileName}`});
-
-        return res.status(200).json({ // Gunakan status 200 untuk update yang berhasil
-            message: "Product updated successfully",
-            data: updatedData
-        });
-
-    } catch (err) {
-        // --- Cleanup Gambar Baru Jika Gagal DB ---
-        // Jika file baru berhasil disimpan ke disk (fileName bukan null) 
-        // tetapi penyimpanan DB GAGAL, kita harus menghapus file baru tersebut.
-        if (fileName) { 
-            const filePathToClean = path.join(productDir, fileName);
-            try {
-                if (fs.existsSync(filePathToClean)) {
-                    fs.unlinkSync(filePathToClean);
-                    console.log(`Cleaned up new file ${fileName} due to DB error.`);
-                }
-            } catch (unlinkError) {
-                console.error(`Failed to cleanup file: ${unlinkError.message}`);
-            }
-        }
-        
-        // Teruskan error ke error handler middleware
-        next(err);
+      fs.mkdirSync(productDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
     }
+  }
+
+  try {
+    const repo = AppDataSource.getRepository(Product);
+    const id = req.params.id;
+
+    // 1. Find existing
+    let existingData = await repo.findOne({ where: { id } }); // Gunakan nama variabel unik
+
+    if (!existingData) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Simpan nama file lama (jika ada) sebelum merge
+    if (existingData.image) {
+      oldImagePath = path.join(productDir, existingData.image);
+    }
+
+    // --- Logika Update Gambar ---
+    let updateData = req.body; // Mulai dengan data dari body
+
+    if (req.file) {
+      // Ada file baru yang diunggah
+
+      const fileExtension = path.extname(req.file.originalname);
+      // Nama file baru menggunakan ID produk yang sudah ada
+      fileName = `${id}${fileExtension}`;
+
+      const newFilePath = path.join(productDir, fileName);
+
+      // Jika ada gambar lama, HAPUS GAMBAR LAMA (Tindakan 1)
+      if (oldImagePath && fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+        console.log(`Old file cleaned up: ${existingData.image}`);
+      }
+
+      // Tulis file baru ke disk (Tindakan 2)
+      fs.writeFileSync(newFilePath, req.file.buffer);
+
+      // Masukkan nama file baru ke data update
+      updateData.image = fileName;
+
+    } else if (req.body.image === null || req.body.image === undefined) {
+      // Jika klien secara eksplisit mengirim image: null/undefined/'' 
+      // atau tidak mengirim req.file, dan ingin menghapus gambar
+
+      // Catatan: Biasanya klien tidak mengirim image:null untuk penghapusan.
+      // Lebih baik menggunakan field terpisah seperti "delete_image: true"
+
+      // Dalam skenario ini, kita berasumsi image: null berarti hapus gambar lama
+      if (oldImagePath && fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+        console.log(`Old file cleaned up: ${existingData.image}`);
+      }
+      updateData.image = null; // Set field image di DB menjadi NULL
+
+    } else {
+      // Jika req.file KOSONG dan req.body tidak mengubah field 'image', 
+      // maka field image DIJAGA nilainya (tidak perlu diapa-apakan).
+      // Namun, karena repo.merge hanya menggabungkan req.body,
+      // dan req.body tidak berisi 'image', nilai lama akan dipertahankan.
+      updateData.image = existingData.image;
+    }
+
+
+    // 2. Merge request body (termasuk image baru/null jika ada) ke entity lama
+    // Gunakan updateData yang mungkin sudah dimodifikasi
+    const updatedData = repo.merge(existingData, updateData);
+
+    // 3. Save the updated entity
+    await repo.save(updatedData);
+
+    watch('product', 'UPDATE', updatedData, { image: `upload/product/${fileName}` });
+
+    return res.status(200).json({ // Gunakan status 200 untuk update yang berhasil
+      message: "Product updated successfully",
+      data: updatedData
+    });
+
+  } catch (err) {
+    // --- Cleanup Gambar Baru Jika Gagal DB ---
+    // Jika file baru berhasil disimpan ke disk (fileName bukan null) 
+    // tetapi penyimpanan DB GAGAL, kita harus menghapus file baru tersebut.
+    if (fileName) {
+      const filePathToClean = path.join(productDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+          console.log(`Cleaned up new file ${fileName} due to DB error.`);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+
+    // Teruskan error ke error handler middleware
+    next(err);
+  }
 };
 
 exports.productDelete = async (req, res, next) => {
-    try {
-        const repo = AppDataSource.getRepository(Product);
-        const id = req.params.id;
+  try {
+    const repo = AppDataSource.getRepository(Product);
+    const id = req.params.id;
 
-        // 1. Cari data produk yang ada untuk mendapatkan nama file gambar
-        const productToDelete = await repo.findOne({ where: { id } });
+    // 1. Cari data produk yang ada untuk mendapatkan nama file gambar
+    const productToDelete = await repo.findOne({ where: { id } });
 
-        if (!productToDelete) {
-            // Jika data tidak ditemukan, kembalikan 404
-            return res.status(404).json({ message: 'Product not found' });
-        }
-        
-        // Simpan nama file gambar lama (jika ada)
-        const fileName = productToDelete.image;
-
-        // 2. Hapus entry dari database
-        const result = await repo.delete(id);
-
-        if (result.affected === 0) {
-            // Ini seharusnya tidak terjadi jika productToDelete ditemukan, 
-            // tapi ini adalah pemeriksaan keamanan.
-            return res.status(404).json({ message: 'Product not found during delete operation' });
-        }
-
-        // 3. Hapus file gambar dari disk (setelah DB berhasil dihapus)
-        if (fileName) {
-            const filePath = path.join(productDir, fileName);
-            
-            // Lakukan penghapusan file
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`Successfully deleted image file: ${fileName}`);
-            } else {
-                console.warn(`Image file not found on disk, skipping cleanup: ${fileName}`);
-            }
-        }
-
-        watch('product', 'DELETE', {id: id}, {image: `upload/product/${fileName}`});
-
-        // 4. Respon Sukses
-        res.json({ 
-          message: 'Product and associated image deleted successfully',
-          data: productToDelete, 
-        });
-        
-    } catch (err) {
-        // Teruskan error ke error handler middleware
-        next(err);
+    if (!productToDelete) {
+      // Jika data tidak ditemukan, kembalikan 404
+      return res.status(404).json({ message: 'Product not found' });
     }
+
+    // Simpan nama file gambar lama (jika ada)
+    const fileName = productToDelete.image;
+
+    // 2. Hapus entry dari database
+    const result = await repo.delete(id);
+
+    if (result.affected === 0) {
+      // Ini seharusnya tidak terjadi jika productToDelete ditemukan, 
+      // tapi ini adalah pemeriksaan keamanan.
+      return res.status(404).json({ message: 'Product not found during delete operation' });
+    }
+
+    // 3. Hapus file gambar dari disk (setelah DB berhasil dihapus)
+    if (fileName) {
+      const filePath = path.join(productDir, fileName);
+
+      // Lakukan penghapusan file
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`Successfully deleted image file: ${fileName}`);
+      } else {
+        console.warn(`Image file not found on disk, skipping cleanup: ${fileName}`);
+      }
+    }
+
+    watch('product', 'DELETE', { id: id }, { image: `upload/product/${fileName}` });
+
+    // 4. Respon Sukses
+    res.json({
+      message: 'Product and associated image deleted successfully',
+      data: productToDelete,
+    });
+
+  } catch (err) {
+    // Teruskan error ke error handler middleware
+    next(err);
+  }
 };
 
 exports.productSoftDelete = async (req, res) => {
@@ -719,7 +720,7 @@ exports.productSoftDelete = async (req, res) => {
       return res.status(404).json({ message: 'Data not found' });
     }
 
-    watch('product', 'SOFDEL', {id: req.params.id}, null);
+    watch('product', 'SOFDEL', { id: req.params.id }, null);
 
     res.json({ message: 'Data soft-deleted successfully' });
   } catch (err) {
@@ -819,84 +820,84 @@ exports.serviceCreate = async (req, res, next) => {
 };
 
 exports.serviceUpdate = async (req, res, next) => {
-    let fileName = null;
-    let oldImagePath = null;
-    
-    if (!fs.existsSync(serviceDir)) {
-        try {
-            fs.mkdirSync(serviceDir, { recursive: true });
-        } catch (dirError) {
-            return next(dirError);
-        }
-    }
+  let fileName = null;
+  let oldImagePath = null;
 
+  if (!fs.existsSync(serviceDir)) {
     try {
-        const repo = AppDataSource.getRepository(Service);
-        const id = req.params.id;
-
-        let existingData = await repo.findOne({ where: { id } });
-
-        if (!existingData) {
-            return res.status(404).json({ message: 'Service not found' });
-        }
-        
-        if (existingData.image) {
-            oldImagePath = path.join(serviceDir, existingData.image);
-        }
-
-        let updateData = req.body;
-
-        if (req.file) {
-
-            const fileExtension = path.extname(req.file.originalname);
-            fileName = `${id}${fileExtension}`; 
-
-            const newFilePath = path.join(serviceDir, fileName);
-            
-            if (oldImagePath && fs.existsSync(oldImagePath)) {
-                fs.unlinkSync(oldImagePath);
-                console.log(`Old file cleaned up: ${existingData.image}`);
-            }
-
-            fs.writeFileSync(newFilePath, req.file.buffer);
-            
-            updateData.image = fileName;
-
-        } else if (req.body.image === null || req.body.image === undefined || req.body.image === '') {
-             if (oldImagePath && fs.existsSync(oldImagePath)) {
-                 fs.unlinkSync(oldImagePath);
-                 console.log(`Old file cleaned up: ${existingData.image}`);
-             }
-             updateData.image = null;
-        } else {
-          
-        }
-
-        const updatedData = repo.merge(existingData, updateData);
-
-        await repo.save(updatedData);
-
-        return res.status(200).json({
-            message: "Service updated successfully",
-            data: updatedData
-        });
-
-    } catch (err) {
-        if (fileName) { 
-            const filePathToClean = path.join(serviceDir, fileName);
-            try {
-                if (fs.existsSync(filePathToClean)) {
-                    fs.unlinkSync(filePathToClean);
-                    console.log(`Cleaned up new file ${fileName} due to DB error.`);
-                }
-            } catch (unlinkError) {
-                console.error(`Failed to cleanup file: ${unlinkError.message}`);
-            }
-        }
-        
-        // Teruskan error ke error handler middleware
-        next(err);
+      fs.mkdirSync(serviceDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
     }
+  }
+
+  try {
+    const repo = AppDataSource.getRepository(Service);
+    const id = req.params.id;
+
+    let existingData = await repo.findOne({ where: { id } });
+
+    if (!existingData) {
+      return res.status(404).json({ message: 'Service not found' });
+    }
+
+    if (existingData.image) {
+      oldImagePath = path.join(serviceDir, existingData.image);
+    }
+
+    let updateData = req.body;
+
+    if (req.file) {
+
+      const fileExtension = path.extname(req.file.originalname);
+      fileName = `${id}${fileExtension}`;
+
+      const newFilePath = path.join(serviceDir, fileName);
+
+      if (oldImagePath && fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+        console.log(`Old file cleaned up: ${existingData.image}`);
+      }
+
+      fs.writeFileSync(newFilePath, req.file.buffer);
+
+      updateData.image = fileName;
+
+    } else if (req.body.image === null || req.body.image === undefined || req.body.image === '') {
+      if (oldImagePath && fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+        console.log(`Old file cleaned up: ${existingData.image}`);
+      }
+      updateData.image = null;
+    } else {
+
+    }
+
+    const updatedData = repo.merge(existingData, updateData);
+
+    await repo.save(updatedData);
+
+    return res.status(200).json({
+      message: "Service updated successfully",
+      data: updatedData
+    });
+
+  } catch (err) {
+    if (fileName) {
+      const filePathToClean = path.join(serviceDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+          console.log(`Cleaned up new file ${fileName} due to DB error.`);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+
+    // Teruskan error ke error handler middleware
+    next(err);
+  }
 };
 
 exports.serviceDelete = async (req, res, next) => {
