@@ -151,7 +151,6 @@ exports.sellingList = async (req, res) => {
 		const repo = AppDataSource.getRepository(Selling);
 		const detailRepo = AppDataSource.getRepository(SellingProductDetail);
 
-		// Query parameters for filtering
 		const {
 			page = 1,
 			limit = 20,
@@ -162,7 +161,6 @@ exports.sellingList = async (req, res) => {
 			market_id,
 		} = req.query;
 
-		// Build query
 		let query = repo
 			.createQueryBuilder("selling")
 			.leftJoinAndSelect("selling.user", "user")
@@ -172,15 +170,19 @@ exports.sellingList = async (req, res) => {
 			.leftJoinAndSelect("selling.voucher", "voucher")
 			.orderBy("selling.created_at", "DESC");
 
-		// Apply filters
+		// ✅ FIX: Tambahkan waktu untuk mencakup seluruh hari
 		if (start_date) {
-			query = query.andWhere("selling.created_at >= :start_date", {
+			query = query.andWhere("DATE(selling.created_at) >= :start_date", {
 				start_date,
 			});
 		}
 		if (end_date) {
-			query = query.andWhere("selling.created_at <= :end_date", { end_date });
+			// ✅ Ubah <= menjadi DATE() comparison atau tambahkan 23:59:59
+			query = query.andWhere("DATE(selling.created_at) <= :end_date", {
+				end_date,
+			});
 		}
+
 		if (is_paid) {
 			query = query.andWhere("selling.is_paid = :is_paid", { is_paid });
 		}
@@ -191,17 +193,12 @@ exports.sellingList = async (req, res) => {
 			query = query.andWhere("selling.market_id = :market_id", { market_id });
 		}
 
-		// Pagination
 		const skip = (page - 1) * limit;
 		query = query.skip(skip).take(parseInt(limit));
 
-		// Get total count
 		const total = await query.getCount();
-
-		// Get data
 		const transactions = await query.getMany();
 
-		// Get items for each transaction
 		const transactionsWithItems = await Promise.all(
 			transactions.map(async (transaction) => {
 				const items = await detailRepo.find({
@@ -338,6 +335,7 @@ exports.sellingProductDetailList = async (req, res) => {
 			.leftJoinAndSelect("detail.selling", "selling")
 			.leftJoinAndSelect("detail.stock", "stock")
 			.leftJoinAndSelect("detail.price", "price")
+			.leftJoinAndSelect("price.product", "product")
 			.orderBy("detail.created_at", "DESC");
 
 		if (selling_id) {
