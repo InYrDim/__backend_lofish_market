@@ -336,7 +336,9 @@ exports.sellingProductDetailList = async (req, res) => {
 			.leftJoinAndSelect("detail.selling", "selling")
 			.leftJoinAndSelect("detail.stock", "stock")
 			.leftJoinAndSelect("detail.price", "price")
+			.leftJoinAndSelect("price.grade", "grade")
 			.leftJoinAndSelect("price.product", "product")
+			.leftJoinAndSelect("product.size", "size")
 			.orderBy("detail.created_at", "DESC");
 
 		if (selling_id) {
@@ -356,6 +358,7 @@ exports.sellingProductDetailList = async (req, res) => {
 		}
 
 		const data = await query.getMany();
+
 		res.json(data);
 	} catch (err) {
 		console.error(err);
