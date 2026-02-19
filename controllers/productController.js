@@ -316,7 +316,6 @@ exports.priceList = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Price);
     const data = await repo.find();
-    console.log(data);
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -372,7 +371,7 @@ exports.priceByProduct = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Price);
     const id = req.params.id;
-    const data = await repo.findOne({
+    const data = await repo.find({
       where: {
         product: { id: id } // Matches the property name 'product' in relations
       }
