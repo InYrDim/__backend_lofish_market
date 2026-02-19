@@ -106,6 +106,7 @@ exports.createTransaction = async (req, res) => {
 					mod_price: item.mod_price,
 					total_price: item.total_price,
 					note: item.note,
+					total_weight: item.total_weight,
 				};
 
 				const detail = queryRunner.manager.create(
