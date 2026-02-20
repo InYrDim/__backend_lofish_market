@@ -57,18 +57,6 @@ module.exports = new EntitySchema({
     },
   },
   relations: {
-    size: {
-      type: 'many-to-one',
-      target: 'Size',
-      joinColumn: {
-        name: 'size_id',
-        referencedColumnName: 'id',
-      },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
-      nullable: false,
-      eager: true,
-    },
     category: {
       type: 'many-to-one',
       target: 'Category',

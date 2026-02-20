@@ -509,6 +509,10 @@ exports.productCreate = async (req, res, next) => {
     }
 
     // 4. Siapkan Data DB
+    // Hapus relasi size dari body karena sudah dipindah ke tabel Price
+    if (req.body.size) delete req.body.size;
+    if (req.body.size_id) delete req.body.size_id;
+
     const productData = {
       id: id,
       ...req.body,
@@ -578,6 +582,10 @@ exports.productUpdate = async (req, res, next) => {
 
     // --- Logika Update Gambar ---
     let updateData = req.body; // Mulai dengan data dari body
+
+    // Hapus relasi size dari body karena sudah dipindah ke tabel Price
+    if (updateData.size) delete updateData.size;
+    if (updateData.size_id) delete updateData.size_id;
 
     if (req.file) {
       // Ada file baru yang diunggah
