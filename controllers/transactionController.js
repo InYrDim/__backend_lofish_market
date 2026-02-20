@@ -338,7 +338,7 @@ exports.sellingProductDetailList = async (req, res) => {
 			.leftJoinAndSelect("detail.price", "price")
 			.leftJoinAndSelect("price.grade", "grade")
 			.leftJoinAndSelect("price.product", "product")
-			.leftJoinAndSelect("product.size", "size")
+			.leftJoinAndSelect("price.size", "size")
 			.orderBy("detail.created_at", "DESC");
 
 		if (selling_id) {
