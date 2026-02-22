@@ -20,6 +20,7 @@ module.exports = new EntitySchema({
       type: 'varchar',
       length: 30,
       nullable: true,
+      unique: true,
     },
     unit: {
       type: 'enum',
