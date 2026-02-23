@@ -877,7 +877,9 @@ exports.serviceUpdate = async (req, res, next) => {
       }
       updateData.image = null;
     } else {
-
+      // Jika req.file kosong dan tidak ada sinyal hapus gambar,
+      // pertahankan nama file lama agar tidak menimpa dengan value "keep_existing_image" dari frontend.
+      updateData.image = existingData.image;
     }
 
     const updatedData = repo.merge(existingData, updateData);
