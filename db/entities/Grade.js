@@ -26,6 +26,11 @@ module.exports = new EntitySchema({
       length: 30,
       nullable: false,
     },
+    barcode: {
+      type: 'varchar',
+      length: 2,
+      nullable: false,
+    },
     created_at: {
       type: 'timestamp',
       createDate: true,
