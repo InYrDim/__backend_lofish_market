@@ -449,7 +449,9 @@ exports.priceDelete = async (req, res) => {
 exports.productList = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Product);
-    const data = await repo.find({ where: { is_show: '1', is_non_stock: '1' } });
+    // const data = await repo.find({ where: { is_show: '1', is_non_stock: '1' } });
+    // TODO: Remove this when we have a way to filter products
+    const data = await repo.find();
     res.json(data);
   } catch (err) {
     console.error(err);
