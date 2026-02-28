@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 
 const transactionController = require('../controllers/transactionController');
+const xenditController = require('../controllers/xenditController');
 
 const auth = require('../middleware/auth');
 
@@ -15,6 +16,8 @@ router.get('/purchase/byid/:id', auth(['purchase']), transactionController.purch
 router.post('/purchase/create', auth(['purchase-edit']), transactionController.purchaseCreate);
 router.patch('/purchase/update/:id', auth(['purchase-edit']), transactionController.purchaseUpdate);
 router.delete('/purchase/delete/:id', auth(['purchase-edit']), transactionController.purchaseDelete);
+
+router.post('/create/qr', auth(['purchase']), xenditController.createQR);
 
 
 module.exports = router;
