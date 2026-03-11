@@ -3,6 +3,7 @@ const generateId = require("../middleware/generateId");
 const Purchase = require("../db/entities/Purchase");
 const Stock = require("../db/entities/Stock");
 const Reject = require("../db/entities/Reject");
+const Product = require("../db/entities/Product");
 
 exports.receiveFromSupplier = async (req, res) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -24,6 +25,17 @@ exports.receiveFromSupplier = async (req, res) => {
         } = req.body;
 
         const userId = req.user?.id || req.body.user_id; // Dari JWT middleware
+
+        // 0. Validate Unit against Product Config
+        const product = await queryRunner.manager.findOne(Product, { where: { id: product_id } });
+        if (!product) {
+            throw new Error("Product not found");
+        }
+        if (product.unit !== (unit || '1')) {
+            const error = new Error(`Gagal menyimpan. Satuan ukur tidak cocok dengan profil produk asal (${product.unit === '1' ? 'KG' : 'Ekor/Pcs'}).`);
+            error.statusCode = 400;
+            throw error;
+        }
 
         // 1. Create Purchase record
         const purchaseId = generateId(16);
@@ -102,7 +114,8 @@ exports.receiveFromSupplier = async (req, res) => {
     } catch (err) {
         await queryRunner.rollbackTransaction();
         console.error("Error receiving from supplier:", err);
-        return res.status(500).json({ message: err.message });
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ message: err.message });
     } finally {
         await queryRunner.release();
     }
@@ -126,6 +139,17 @@ exports.transferToMarket = async (req, res) => {
         } = req.body;
 
         const userId = req.user?.id || req.body.user_id;
+
+        // 0. Validate Unit against Product Config
+        const product = await queryRunner.manager.findOne(Product, { where: { id: product_id } });
+        if (!product) {
+            throw new Error("Product not found");
+        }
+        if (product.unit !== (unit || '1')) {
+            const error = new Error(`Gagal mentransfer. Satuan ukur tidak cocok dengan profil produk asal (${product.unit === '1' ? 'KG' : 'Ekor/Pcs'}).`);
+            error.statusCode = 400;
+            throw error;
+        }
 
         // 1. Reduce stock from the source (Gudang)
         const sourceStock = await queryRunner.manager.findOne(Stock, {
@@ -199,7 +223,8 @@ exports.transferToMarket = async (req, res) => {
     } catch (err) {
         await queryRunner.rollbackTransaction();
         console.error("Error transferring to market:", err);
-        return res.status(500).json({ message: err.message });
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ message: err.message });
     } finally {
         await queryRunner.release();
     }
