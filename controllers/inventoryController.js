@@ -4,6 +4,11 @@ const Purchase = require("../db/entities/Purchase");
 const Stock = require("../db/entities/Stock");
 const Reject = require("../db/entities/Reject");
 const Product = require("../db/entities/Product");
+const fs = require('fs');
+const path = require('path');
+
+const baseDir = path.join(process.cwd(), "upload");
+const rejectDir = path.join(baseDir, "reject");
 
 exports.receiveFromSupplier = async (req, res) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -232,9 +237,33 @@ exports.transferToMarket = async (req, res) => {
 
 exports.getInventoryDashboard = async (req, res) => {
     try {
-        const stocks = await AppDataSource.getRepository(Stock).find({
-            relations: ['market', 'werehouse', 'product'],
-        });
+        const userRole = req.user?.role;
+        const userMarketId = req.user?.market_id;
+        console.log("=== req.user ===", req.user);
+
+        // Roles that see only their own outlet
+        const outletScopedRoles = ['SPVR', 'GDNG', 'KSR', 'TMBG'];
+        const isOutletScoped = outletScopedRoles.includes(userRole);
+
+        let where = {};
+        if (isOutletScoped && userMarketId) {
+            // Supervisor/Gudang/Kasir: only see their assigned outlet's stock
+            where = [
+                { market: { id: userMarketId } },
+                { werehouse: { id: userMarketId } },
+            ];
+        }
+        // Admin/Manager: no filter — see all stock
+
+        const stockRepo = AppDataSource.getRepository(Stock);
+        const stocks = isOutletScoped && userMarketId
+            ? await stockRepo.find({
+                where,
+                relations: ['market', 'werehouse', 'product'],
+              })
+            : await stockRepo.find({
+                relations: ['market', 'werehouse', 'product'],
+              });
 
         const marketData = {};
 
@@ -245,6 +274,9 @@ exports.getInventoryDashboard = async (req, res) => {
             if (stock.market && stock.market.id) {
                 locId = stock.market.id;
                 locName = stock.market.name || `Market ${stock.market.id}`;
+            } else if (stock.werehouse && stock.werehouse.id) {
+                locId = stock.werehouse.id;
+                locName = stock.werehouse.name || 'Gudang Utama';
             }
 
             if (!marketData[locId]) {
@@ -261,10 +293,207 @@ exports.getInventoryDashboard = async (req, res) => {
 
         res.status(200).json({
             message: "Dashboard data fetched",
-            data: Object.values(marketData)
+            data: Object.values(marketData),
+            // Let frontend know if this is scoped or full view
+            scoped: isOutletScoped,
+            market_id: userMarketId || null,
         });
     } catch (err) {
         console.error("Error fetching dashboard:", err);
         res.status(500).json({ message: err.message });
+    }
+};
+
+
+exports.requestReject = async (req, res, next) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const {
+            market_id,
+            product_id,
+            qty,
+            desc,
+            unit
+        } = req.body;
+
+        const userId = req.user?.id;
+        const targetMarketId = market_id || req.user?.market_id;
+
+        if (!targetMarketId) {
+            const error = new Error("Market ID is required");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Find the stock
+        const stock = await queryRunner.manager.findOne(Stock, {
+            where: [
+                { market: { id: targetMarketId }, product: { id: product_id }, unit: unit || '1' },
+                { werehouse: { id: targetMarketId }, product: { id: product_id }, unit: unit || '1' }
+            ]
+        });
+
+        if (!stock) {
+            const error = new Error("Stock not found for this product and market");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const rejectId = generateId(16);
+        let fileName = null;
+
+        // Handle image upload
+        if (req.file) {
+            if (!fs.existsSync(rejectDir)) {
+                fs.mkdirSync(rejectDir, { recursive: true });
+            }
+            const fileExtension = path.extname(req.file.originalname);
+            fileName = `${rejectId}${fileExtension}`;
+            const filePath = path.join(rejectDir, fileName);
+            fs.writeFileSync(filePath, req.file.buffer);
+        }
+
+        const rejectData = {
+            id: rejectId,
+            qty: parseFloat(qty),
+            desc: desc || "Reject requested",
+            status: '3', // 3 = other
+            unit: unit || '1',
+            approval_status: 'PENDING',
+            image_proof: fileName,
+            user: userId ? { id: userId } : null,
+            stock: { id: stock.id }
+        };
+
+        const reject = queryRunner.manager.create(Reject, rejectData);
+        await queryRunner.manager.save(Reject, reject);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(201).json({
+            message: "Reject request submitted successfully",
+            data: reject
+        });
+
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error("Error requesting reject:", err);
+        if (next) return next(err);
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+exports.getRejectList = async (req, res, next) => {
+    try {
+        const userRole = req.user?.role;
+        const userMarketId = req.user?.market_id;
+
+        const outletScopedRoles = ['SPVR', 'GDNG', 'KSR', 'TMBG'];
+        const isOutletScoped = outletScopedRoles.includes(userRole);
+
+        let where = {};
+        if (isOutletScoped && userMarketId) {
+            where = [
+                { stock: { market: { id: userMarketId } } },
+                { stock: { werehouse: { id: userMarketId } } }
+            ];
+        }
+
+        const rejectRepo = AppDataSource.getRepository(Reject);
+        const rejects = await rejectRepo.find({
+            where,
+            relations: ['user', 'approved_by', 'stock', 'stock.product', 'stock.market', 'stock.werehouse'],
+            order: { created_at: 'DESC' }
+        });
+
+        return res.status(200).json({
+            message: "Reject list fetched successfully",
+            data: rejects
+        });
+    } catch (err) {
+        console.error("Error fetching reject list:", err);
+        if (next) return next(err);
+        return res.status(500).json({ message: err.message });
+    }
+};
+
+exports.approveReject = async (req, res, next) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const { id } = req.params;
+        const { action } = req.body; // 'APPROVED' or 'REJECTED'
+
+        if (!['APPROVED', 'REJECTED'].includes(action)) {
+            const error = new Error("Invalid action. Must be APPROVED or REJECTED");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const userId = req.user?.id;
+
+        const reject = await queryRunner.manager.findOne(Reject, {
+            where: { id },
+            relations: ['stock']
+        });
+
+        if (!reject) {
+            const error = new Error("Reject record not found");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        if (reject.approval_status !== 'PENDING') {
+            const error = new Error(`Reject is already ${reject.approval_status}`);
+            error.statusCode = 400;
+            throw error;
+        }
+
+        reject.approval_status = action;
+        reject.approved_by = { id: userId };
+
+        if (action === 'APPROVED') {
+            const stock = reject.stock;
+            if (!stock) {
+                const error = new Error("Related stock not found");
+                error.statusCode = 404;
+                throw error;
+            }
+
+            if (stock.qty < reject.qty) {
+                const error = new Error("Insufficient stock to approve this reject");
+                error.statusCode = 400;
+                throw error;
+            }
+
+            stock.qty -= reject.qty;
+            await queryRunner.manager.save(Stock, stock);
+        }
+
+        await queryRunner.manager.save(Reject, reject);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            message: `Reject request ${action.toLowerCase()} successfully`,
+            data: reject
+        });
+
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error("Error approving reject:", err);
+        if (next) return next(err);
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
     }
 };

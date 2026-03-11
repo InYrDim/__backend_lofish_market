@@ -26,6 +26,7 @@ exports.login = async (req, res) => {
 		// cari user berdasarkan username ATAU email
 		const user = await userRepo.findOne({
 			where: [{ username: username }, { email: email }],
+			relations: ['role', 'market'],
 		});
 
 		if (!user) {
@@ -62,7 +63,8 @@ exports.login = async (req, res) => {
 				name: user.name,
 				username: user.username,
 				email: user.email,
-				role: user.role_id,
+				role: user.role.id,
+				market_id: user.market?.id || null,
 				hasPermit: permissionNames,
 			},
 			process.env.JWT_SECRET || "secretKey123", // ubah ke env
@@ -97,6 +99,7 @@ exports.login = async (req, res) => {
 				role: user.role.id,
 				username: user.username,
 				email: user.email,
+				market_id: user.market?.id || null,
 				login: true,
 				hasPermit: permissionNames,
 			},

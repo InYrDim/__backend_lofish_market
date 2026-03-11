@@ -65,5 +65,16 @@ module.exports = new EntitySchema({
       nullable: true,
       eager: true,
     },
+    market: {
+      type: 'many-to-one',
+      target: 'Profile',
+      joinColumn: {
+        name: 'market_id',
+        referencedColumnName: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      nullable: true,
+    },
   },
 });

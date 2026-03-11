@@ -21,7 +21,7 @@ router.get('/user-list', userController.userList);
 router.post('/user-create', userController.userCreate);
 // router.put('/user-update/:id', userController.userUpdate); // update entire data (replace)
 router.patch('/user-update/:id', userController.userUpdate); // update sebagian
-router.get('/user-delete', userController.userDelete);
+router.get('/user-delete/:id', userController.userDelete);
 router.get('/user-soft-delete/:id', userController.userSoftDelete);
 
 router.get('/member-list', userController.memberList);

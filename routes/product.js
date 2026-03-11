@@ -131,5 +131,8 @@ router.delete('/category/delete/:id', auth(['category-edit']), productController
 router.post('/inventory/receive', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveFromSupplier);
 router.post('/inventory/transfer', auth(['stock-edit']), inventoryController.transferToMarket);
 router.get('/inventory/dashboard', auth(['stock-list']), inventoryController.getInventoryDashboard);
+router.post('/inventory/reject-request', auth(['reject-edit']), upload.single('image_proof'), inventoryController.requestReject, errorHandler);
+router.post('/inventory/reject-approve/:id', auth(['reject-edit']), inventoryController.approveReject);
+router.get('/inventory/reject-list', auth(['reject']), inventoryController.getRejectList);
 
 module.exports = router;

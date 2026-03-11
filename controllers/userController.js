@@ -17,13 +17,16 @@ exports.userList = async (req, res) => {
     const userRepo = AppDataSource.getRepository(User);
     const users = await userRepo.createQueryBuilder('user')
     .leftJoinAndSelect('user.role', 'role')
+    .leftJoinAndSelect('user.market', 'market')
     .select([
-        'user.id', 
-        'user.username', 
-        'user.email', 
-        'role.id', 
-        'role.name', // Hanya ambil kolom ini dari role
-        'role.guard_name'
+        'user.id',
+        'user.username',
+        'user.email',
+        'role.id',
+        'role.name',
+        'role.guard_name',
+        'market.id',
+        'market.name'
     ])
     .getMany();
     res.json(users);
@@ -63,9 +66,13 @@ exports.userCreate = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(User);
     const id = generateId(8);
+    const { market_id, ...rest } = req.body;
     const createData = {
       id: id,
-      ...req.body
+      ...rest
+    }
+    if (market_id) {
+      createData.market = { id: market_id };
     }
     const data = repo.create(createData);
     await repo.save(data);
@@ -92,7 +99,12 @@ exports.userUpdate = async (req, res) => {
     }
 
     // 2. Merge request body to entity
-    const updated = repo.merge(data, req.body);
+    const { market_id, ...rest } = req.body;
+    const updateData = { ...rest };
+    if (market_id) {
+      updateData.market = { id: market_id };
+    }
+    const updated = repo.merge(data, updateData);
 
     // 3. Save the updated entity
     await repo.save(updated);

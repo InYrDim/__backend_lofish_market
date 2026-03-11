@@ -986,7 +986,41 @@ exports.serviceSoftDelete = async (req, res) => {
 exports.stockList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Stock);
-		const data = await repo.find();
+
+		const userRole = req.user?.role;
+		const userMarketId = req.user?.market_id;
+		const outletScopedRoles = ['SPVR', 'GDNG', 'KSR', 'TMBG'];
+		const isOutletScoped = outletScopedRoles.includes(userRole);
+
+		// Also support explicit query param (e.g. admin filtering by outlet)
+		const filterMarketId = req.query.market_id || req.query.warehouse_id || null;
+
+		let data;
+		if (isOutletScoped && userMarketId) {
+			// Scoped users: only their outlet or warehouse
+			data = await repo.find({
+				where: [
+					{ market: { id: userMarketId } },
+					{ werehouse: { id: userMarketId } },
+				],
+				relations: ['product', 'market', 'werehouse'],
+			});
+		} else if (filterMarketId) {
+			// Admin filtering by specific outlet
+			data = await repo.find({
+				where: [
+					{ market: { id: filterMarketId } },
+					{ werehouse: { id: filterMarketId } },
+				],
+				relations: ['product', 'market', 'werehouse'],
+			});
+		} else {
+			// Admin/Manager: return all
+			data = await repo.find({
+				relations: ['product', 'market', 'werehouse'],
+			});
+		}
+
 		res.json(data);
 	} catch (err) {
 		console.error(err);
