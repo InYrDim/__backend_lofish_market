@@ -129,6 +129,7 @@ router.delete('/category/delete/:id', auth(['category-edit']), productController
 
 // Inventory Flow
 router.post('/inventory/receive', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveFromSupplier);
+router.post('/inventory/receive-bulk', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveBulkFromSupplier);
 router.post('/inventory/transfer', auth(['stock-edit']), inventoryController.transferToMarket);
 router.get('/inventory/dashboard', auth(['stock-list']), inventoryController.getInventoryDashboard);
 router.post('/inventory/reject-request', auth(['reject-edit']), upload.single('image_proof'), inventoryController.requestReject, errorHandler);

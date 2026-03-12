@@ -126,6 +126,139 @@ exports.receiveFromSupplier = async (req, res) => {
     }
 };
 
+exports.receiveBulkFromSupplier = async (req, res) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const {
+            supplier_id,
+            werehouse_id, // GUDANG market ID
+            items // array of { product_id, purchased_qty, accepted_qty, rejected_qty, reject_reason, price, batch, unit }
+        } = req.body;
+
+        const userId = req.user?.id || req.body.user_id;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            const error = new Error("Items array is required and cannot be empty.");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const purchaseIds = [];
+        const acceptedStockIds = [];
+
+        for (const item of items) {
+            const {
+                product_id,
+                purchased_qty,
+                accepted_qty,
+                rejected_qty,
+                reject_reason,
+                price,
+                batch,
+                unit
+            } = item;
+
+            // 0. Validate Unit against Product Config
+            const product = await queryRunner.manager.findOne(Product, { where: { id: product_id } });
+            if (!product) {
+                const error = new Error(`Product with ID ${product_id} not found`);
+                error.statusCode = 404;
+                throw error;
+            }
+            if (product.unit !== (unit || '1')) {
+                const error = new Error(`Gagal menyimpan "${product.name}". Satuan ukur tidak cocok dengan profil produk asal (${product.unit === '1' ? 'KG' : 'Ekor/Pcs'}).`);
+                error.statusCode = 400;
+                throw error;
+            }
+
+            // 1. Create Purchase record
+            const purchaseId = generateId(16);
+            const purchaseData = {
+                id: purchaseId,
+                batch: batch || null,
+                qty: parseFloat(purchased_qty),
+                price: parseFloat(price) || 0,
+                user: userId ? { id: userId } : null,
+                product: { id: product_id },
+                werehouse: { id: werehouse_id },
+                supplier: { id: supplier_id },
+                unit: unit || '1'
+            };
+
+            const purchase = queryRunner.manager.create(Purchase, purchaseData);
+            await queryRunner.manager.save(Purchase, purchase);
+            purchaseIds.push(purchaseId);
+
+            // 2. Create/Update Stock record for accepted quantity
+            let existingStock = await queryRunner.manager.findOne(Stock, {
+                where: {
+                    werehouse: { id: werehouse_id },
+                    product: { id: product_id },
+                    unit: unit || '1'
+                }
+            });
+
+            if (existingStock) {
+                existingStock.qty += parseFloat(accepted_qty);
+                await queryRunner.manager.save(Stock, existingStock);
+            } else {
+                const stockId = generateId(16);
+                const stockData = {
+                    id: stockId,
+                    batch: batch || null,
+                    qty: parseFloat(accepted_qty),
+                    user: userId ? { id: userId } : null,
+                    product: { id: product_id },
+                    werehouse: { id: werehouse_id },
+                    purchase: { id: purchaseId },
+                    unit: unit || '1'
+                };
+                existingStock = queryRunner.manager.create(Stock, stockData);
+                await queryRunner.manager.save(Stock, existingStock);
+            }
+            acceptedStockIds.push(existingStock.id);
+
+            // 3. Create Reject record if there are rejected items
+            if (parseFloat(rejected_qty) > 0) {
+                const rejectId = generateId(16);
+                const rejectData = {
+                    id: rejectId,
+                    qty: parseFloat(rejected_qty),
+                    desc: reject_reason || "Rejected upon bulk receipt from supplier",
+                    status: '3', // 3 = other
+                    user: userId ? { id: userId } : null,
+                    stock: { id: existingStock.id },
+                    unit: unit || '1'
+                };
+
+                const reject = queryRunner.manager.create(Reject, rejectData);
+                await queryRunner.manager.save(Reject, reject);
+            }
+        }
+
+        await queryRunner.commitTransaction();
+
+        return res.status(201).json({
+            message: "Bulk stock successfully received and validated from supplier",
+            data: {
+                purchaseIds,
+                acceptedStockIds
+            }
+        });
+
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error("Error receiving bulk from supplier:", err);
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
 exports.transferToMarket = async (req, res) => {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
