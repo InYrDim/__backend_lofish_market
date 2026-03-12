@@ -452,8 +452,11 @@ exports.requestReject = async (req, res, next) => {
             unit
         } = req.body;
 
+        console.log("=== requestReject payload ===", req.body);
+
         const userId = req.user?.id;
-        const targetMarketId = market_id || req.user?.market_id;
+        const parsedMarketId = market_id === 'null' || market_id === 'undefined' ? null : market_id;
+        const targetMarketId = parsedMarketId || req.user?.market_id;
 
         if (!targetMarketId) {
             const error = new Error("Market ID is required");
