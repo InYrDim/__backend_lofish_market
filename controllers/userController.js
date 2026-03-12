@@ -20,6 +20,7 @@ exports.userList = async (req, res) => {
     .leftJoinAndSelect('user.market', 'market')
     .select([
         'user.id',
+        'user.name',
         'user.username',
         'user.email',
         'role.id',

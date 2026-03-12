@@ -47,7 +47,7 @@ router.get('/permission-delete/:id', userController.permissionDelete);
 
 router.get('/supplier-list', userController.supplierList);
 router.post('/supplier-create', userController.supplierCreate);
-router.patch('/suppllier-update/:id', userController.supplierUpdate);
+router.patch('/supplier-update/:id', userController.supplierUpdate);
 router.get('/supplier-delete/:id', userController.supplierDelete);
 router.get('/supplier-soft-delete/:id', userController.supplierSoftDelete);
 
