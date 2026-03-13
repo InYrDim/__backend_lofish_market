@@ -1,3 +1,4 @@
+const { MoreThanOrEqual } = require('typeorm');
 const AppDataSource = require("../config/data-source");
 const generateId = require("../middleware/generateId");
 const Purchase = require("../db/entities/Purchase");
@@ -637,12 +638,16 @@ exports.approveReject = async (req, res, next) => {
 exports.getPurchaseHistory = async (req, res, next) => {
     try {
         const purchaseRepo = AppDataSource.getRepository(Purchase);
-        
-        // Fetch last 100 purchases for time-series chart
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // Fetch purchases from the last 30 days
         const purchases = await purchaseRepo.find({
+            where: {
+                created_at: MoreThanOrEqual(thirtyDaysAgo)
+            },
             relations: ['product', 'supplier', 'werehouse'],
-            order: { created_at: 'DESC' },
-            take: 100
+            order: { created_at: 'DESC' }
         });
 
         return res.status(200).json({
