@@ -633,3 +633,25 @@ exports.approveReject = async (req, res, next) => {
         await queryRunner.release();
     }
 };
+
+exports.getPurchaseHistory = async (req, res, next) => {
+    try {
+        const purchaseRepo = AppDataSource.getRepository(Purchase);
+        
+        // Fetch last 100 purchases for time-series chart
+        const purchases = await purchaseRepo.find({
+            relations: ['product', 'supplier', 'werehouse'],
+            order: { created_at: 'DESC' },
+            take: 100
+        });
+
+        return res.status(200).json({
+            message: "Purchase history fetched successfully",
+            data: purchases
+        });
+    } catch (err) {
+        console.error("Error fetching purchase history:", err);
+        if (next) return next(err);
+        return res.status(500).json({ message: err.message });
+    }
+};

@@ -135,5 +135,6 @@ router.get('/inventory/dashboard', auth(['stock-list']), inventoryController.get
 router.post('/inventory/reject-request', auth(['reject-edit']), upload.single('image_proof'), inventoryController.requestReject, errorHandler);
 router.post('/inventory/reject-approve/:id', auth(['reject-edit']), inventoryController.approveReject);
 router.get('/inventory/reject-list', auth(['reject']), inventoryController.getRejectList);
+router.get('/inventory/purchase-history', auth(['purchase']), inventoryController.getPurchaseHistory);
 
 module.exports = router;
