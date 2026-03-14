@@ -13,6 +13,7 @@ const AppDataSource = new DataSource({
   logging: process.env.DB_LOGG,
   entities: [path.join(__dirname, '../db/entities/*.js')],
   migrations: [path.join(__dirname, '../db/migrations/*.js')],
+  timezone: 'Z',
 });
 
 module.exports = AppDataSource;
