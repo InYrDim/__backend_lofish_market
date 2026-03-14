@@ -32,13 +32,11 @@ module.exports = class AddSupervisorRoleAndUserMarket1772800000000 {
         }
 
         // 2. Add market_id column to user table (nullable FK → profile)
-        // Check if column exists first
-        const columnExists = await queryRunner.query(
-            `SELECT COUNT(*) as count FROM INFORMATION_SCHEMA.COLUMNS 
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user' AND COLUMN_NAME = 'market_id'`
-        );
+        // Check if column exists first using SHOW COLUMNS which is more direct
+        const columns = await queryRunner.query(`SHOW COLUMNS FROM \`user\` LIKE 'market_id'`);
+        const columnExists = columns.length > 0;
         
-        if (columnExists[0].count === 0) {
+        if (!columnExists) {
             await queryRunner.query(
                 `ALTER TABLE \`user\` ADD COLUMN \`market_id\` VARCHAR(8) NULL DEFAULT NULL`
             );
