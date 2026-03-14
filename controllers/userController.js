@@ -10,6 +10,7 @@ const Supplier = require('../db/entities/Supplier');
 const HasPermit = require('../db/entities/HasPermit');
 
 const generateId = require('../middleware/generateId');
+const bcrypt = require('bcrypt');
 
 // User
 exports.userList = async (req, res) => {
@@ -67,14 +68,27 @@ exports.userCreate = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(User);
     const id = generateId(8);
-    const { market_id, ...rest } = req.body;
+    const { market_id, role_id, password, ...rest } = req.body;
+    
     const createData = {
       id: id,
       ...rest
+    };
+
+    if (password) {
+      createData.password = await bcrypt.hash(password, 10);
     }
+
+    if (role_id) {
+      createData.role = { id: role_id };
+    }
+
     if (market_id) {
       createData.market = { id: market_id };
+    } else {
+      createData.market = null;
     }
+
     const data = repo.create(createData);
     await repo.save(data);
 
@@ -83,6 +97,7 @@ exports.userCreate = async (req, res) => {
       data: data
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -100,21 +115,32 @@ exports.userUpdate = async (req, res) => {
     }
 
     // 2. Merge request body to entity
-    const { market_id, ...rest } = req.body;
+    const { market_id, role_id, password, ...rest } = req.body;
     const updateData = { ...rest };
-    if (market_id) {
-      updateData.market = { id: market_id };
+
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 10);
     }
+
+    if (role_id) {
+      updateData.role = { id: role_id };
+    }
+
+    if (market_id !== undefined) {
+      updateData.market = market_id ? { id: market_id } : null;
+    }
+
     const updated = repo.merge(data, updateData);
 
     // 3. Save the updated entity
     await repo.save(updated);
 
-    return res.status(200).json({ // Gunakan status 200 untuk update yang berhasil
+    return res.status(200).json({ 
       message: "User updated successfully",
       data: updated
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
