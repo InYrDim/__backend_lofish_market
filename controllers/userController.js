@@ -28,7 +28,8 @@ exports.userList = async (req, res) => {
         'role.name',
         'role.guard_name',
         'market.id',
-        'market.name'
+        'market.name',
+        'user.permissions'
     ])
     .getMany();
     res.json(users);
@@ -50,7 +51,8 @@ exports.userById = async (req, res) => {
       'user.email', 
       'role.id', 
       'role.name',
-      'role.guard_name'
+      'role.guard_name',
+      'user.permissions'
     ])
     .where('user.id = :id', { id: id }) // Menambahkan kondisi WHERE yang spesifik ke user.id
     .getOne();
@@ -68,10 +70,11 @@ exports.userCreate = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(User);
     const id = generateId(8);
-    const { market_id, role_id, password, ...rest } = req.body;
+    const { market_id, role_id, password, permissions, ...rest } = req.body;
     
     const createData = {
       id: id,
+      permissions: permissions || null,
       ...rest
     };
 
@@ -108,15 +111,24 @@ exports.userUpdate = async (req, res) => {
     const id = req.params.id;
 
     // 1. Find existing
-    const data = await repo.findOne({ where: { id } });
+    const data = await repo.findOne({ where: { id }, relations: ['role'] });
 
     if (!data) {
       return res.status(404).json({ message: 'Data not found' });
     }
 
+    // Protection for Super Admin
+    if (data.id === 'ADMN001' || data.role?.id === 'ADMN') {
+      return res.status(403).json({ message: 'Super Admin account cannot be modified via API' });
+    }
+
     // 2. Merge request body to entity
-    const { market_id, role_id, password, ...rest } = req.body;
+    const { market_id, role_id, password, permissions, ...rest } = req.body;
     const updateData = { ...rest };
+
+    if (permissions !== undefined) {
+      updateData.permissions = permissions;
+    }
 
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
@@ -148,7 +160,15 @@ exports.userUpdate = async (req, res) => {
 exports.userDelete = async (req, res) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const result = await userRepo.delete(req.params.id);
+    const id = req.params.id;
+
+    // Protection for Super Admin
+    const user = await userRepo.findOne({ where: { id }, relations: ['role'] });
+    if (user?.id === 'ADMN001' || user?.role?.id === 'ADMN') {
+      return res.status(403).json({ message: 'Super Admin account cannot be deleted' });
+    }
+
+    const result = await userRepo.delete(id);
 
     if (result.affected === 0) {
       return res.status(404).json({ message: 'User not found' });
@@ -163,7 +183,15 @@ exports.userDelete = async (req, res) => {
 exports.userSoftDelete = async (req, res) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const result = await userRepo.softDelete(req.params.id);
+    const id = req.params.id;
+
+    // Protection for Super Admin
+    const user = await userRepo.findOne({ where: { id }, relations: ['role'] });
+    if (user?.id === 'ADMN001' || user?.role?.id === 'ADMN') {
+      return res.status(403).json({ message: 'Super Admin account cannot be deleted' });
+    }
+
+    const result = await userRepo.softDelete(id);
 
     if (result.affected === 0) {
       return res.status(404).json({ message: 'User not found' });

@@ -51,6 +51,10 @@ module.exports = new EntitySchema({
       type: 'timestamp',
       deleteDate: true,
     },
+    permissions: {
+      type: 'json',
+      nullable: true,
+    },
   },
   relations: {
     role: {

@@ -45,6 +45,15 @@ exports.login = async (req, res) => {
 		});
 
 		const permissionNames = hasPermit.map((item) => item.permission.name);
+		
+		// Gabungkan dengan izin khusus user (jika ada)
+		if (user.permissions && Array.isArray(user.permissions)) {
+			user.permissions.forEach(p => {
+				if (!permissionNames.includes(p)) {
+					permissionNames.push(p);
+				}
+			});
+		}
 
 		// cek password
 		const match = await bcrypt.compare(password, user.password);
