@@ -338,7 +338,7 @@ exports.sellingSoftDelete = async (req, res) => {
 exports.sellingProductDetailList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(SellingProductDetail);
-		let { selling_id, market_id, user_id, stock_id, price_id } = req.query;
+		let { selling_id, market_id, user_id, stock_id, price_id, start_date, end_date } = req.query;
 
 		// Scoped user check (SPVR)
 		const isSPVR = req.user?.role?.id === 'SPVR' || req.user?.role === 'SPVR';
@@ -374,6 +374,14 @@ exports.sellingProductDetailList = async (req, res) => {
 		if (price_id) {
 			query = query.andWhere("detail.price_id = :price_id", { price_id });
 		}
+		if (start_date) {
+			query = query.andWhere("selling.created_at >= :start_date", { start_date });
+		}
+		if (end_date) {
+			query = query.andWhere("selling.created_at <= :end_date", { end_date });
+		}
+
+
 
 		const data = await query.getMany();
 
