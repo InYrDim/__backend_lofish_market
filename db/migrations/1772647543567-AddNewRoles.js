@@ -22,12 +22,10 @@ module.exports = class AddNewRoles1772647543567 {
         ];
 
         for (const role of newRoles) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('role')
-                .values(role)
-                .execute();
+            await queryRunner.query(
+                "INSERT INTO `role` (`id`, `name`, `guard_name`) VALUES (?, ?, ?)",
+                [role.id, role.name, role.guard_name]
+            );
         }
 
         console.log('Migrasi New Roles selesai.');

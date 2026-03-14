@@ -18,14 +18,10 @@ module.exports = class SeedPaymentMethods1771600000000 {
         // Using REPLACE to handle potential duplicates gracefully or INSERT IGNORE in MySQL syntax
         // QueryBuilder insert handles this if we want, or we can just iterate.
         for (const pm of paymentMethods) {
-            // Because TypeORM insert() builder doesn't easily do ON DUPLICATE KEY UPDATE in a raw JS way without specific drivers, we can do raw query or standard insert.
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('payment_method')
-                .values(pm)
-                // Using try/catch to ignore duplicates just in case
-                .execute().catch(e => console.log(`Payment method ${pm.id} already exists.`));
+            await queryRunner.query(
+                "INSERT IGNORE INTO `payment_method` (`id`, `name`, `icon`) VALUES (?, ?, ?)",
+                [pm.id, pm.name, pm.icon]
+            );
         }
 
         console.log('Migrasi Payment Methods selesai.');
