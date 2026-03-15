@@ -810,6 +810,8 @@ exports.serviceCreate = async (req, res, next) => {
 		const data = repo.create(serviceData);
 		await repo.save(data);
 
+		await watch("service", "INSERT", id);
+
 		return res.status(201).json({
 			message: "Service created successfully",
 			data: data,
@@ -895,6 +897,8 @@ exports.serviceUpdate = async (req, res, next) => {
 		const updatedData = repo.merge(existingData, updateData);
 
 		await repo.save(updatedData);
+
+		await watch("service", "UPDATE", id);
 
 		return res.status(200).json({
 			message: "Service updated successfully",

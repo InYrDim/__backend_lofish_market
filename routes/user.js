@@ -31,8 +31,8 @@ router.delete('/supplier/soft-delete/:id',auth(['supplier-edit']), userControlle
 
 router.get('/user/list', auth(['user']), userController.userList);
 router.get('/user/byid/:id', auth(['user']), userController.userById);
-router.post('/user/create', auth(['user-edit']), userController.userCreate);
-router.patch('/user/update/:id', auth(['user-edit']), userController.userUpdate);
+router.post('/user/create', auth(['user-edit']), upload.single('image'), userController.userCreate);
+router.patch('/user/update/:id', auth(['user-edit']), upload.single('image'), userController.userUpdate);
 router.delete('/user/delete/:id', auth(['user-edit']), userController.userDelete);
 router.delete('/user/soft-delete/:id',auth(['user-edit']), userController.userSoftDelete);
 

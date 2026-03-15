@@ -11,6 +11,11 @@ const HasPermit = require('../db/entities/HasPermit');
 
 const generateId = require('../middleware/generateId');
 const bcrypt = require('bcrypt');
+const path = require('path');
+const fs = require('fs');
+
+const baseDir = path.join(process.cwd(), "upload");
+const userDir = path.join(baseDir, "user");
 
 // User
 exports.userList = async (req, res) => {
@@ -29,7 +34,8 @@ exports.userList = async (req, res) => {
         'role.guard_name',
         'market.id',
         'market.name',
-        'user.permissions'
+        'user.permissions',
+        'user.image'
     ])
     .getMany();
     res.json(users);
@@ -52,7 +58,8 @@ exports.userById = async (req, res) => {
       'role.id', 
       'role.name',
       'role.guard_name',
-      'user.permissions'
+      'user.permissions',
+      'user.image'
     ])
     .where('user.id = :id', { id: id }) // Menambahkan kondisi WHERE yang spesifik ke user.id
     .getOne();
@@ -66,15 +73,34 @@ exports.userById = async (req, res) => {
   }
 };
 
-exports.userCreate = async (req, res) => {
+exports.userCreate = async (req, res, next) => {
+  // --- Setup Path for Manual Storage ---
+  let fileName = null;
+
+  if (!fs.existsSync(userDir)) {
+    try {
+      fs.mkdirSync(userDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
+    }
+  }
+
   try {
     const repo = AppDataSource.getRepository(User);
     const id = generateId(8);
     const { market_id, role_id, password, permissions, ...rest } = req.body;
     
+    if (req.file) {
+      const fileExtension = path.extname(req.file.originalname);
+      fileName = `${id}${fileExtension}`;
+      const filePath = path.join(userDir, fileName);
+      fs.writeFileSync(filePath, req.file.buffer);
+    }
+
     const createData = {
       id: id,
       permissions: permissions || null,
+      image: fileName,
       ...rest
     };
 
@@ -100,29 +126,50 @@ exports.userCreate = async (req, res) => {
       data: data
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
+    if (fileName) {
+      const filePathToClean = path.join(userDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+    next(err);
   }
 };
 
-exports.userUpdate = async (req, res) => {
+exports.userUpdate = async (req, res, next) => {
+  let fileName = null;
+  let oldImagePath = null;
+
+  if (!fs.existsSync(userDir)) {
+    try {
+      fs.mkdirSync(userDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
+    }
+  }
+
   try {
     const repo = AppDataSource.getRepository(User);
     const id = req.params.id;
 
-    // 1. Find existing
     const data = await repo.findOne({ where: { id }, relations: ['role'] });
 
     if (!data) {
       return res.status(404).json({ message: 'Data not found' });
     }
 
-    // Protection for Super Admin
     if (data.id === 'ADMN001' || data.role?.id === 'ADMN') {
       return res.status(403).json({ message: 'Super Admin account cannot be modified via API' });
     }
 
-    // 2. Merge request body to entity
+    if (data.image) {
+      oldImagePath = path.join(userDir, data.image);
+    }
+
     const { market_id, role_id, password, permissions, ...rest } = req.body;
     const updateData = { ...rest };
 
@@ -142,9 +189,28 @@ exports.userUpdate = async (req, res) => {
       updateData.market = market_id ? { id: market_id } : null;
     }
 
-    const updated = repo.merge(data, updateData);
+    if (req.file) {
+      const fileExtension = path.extname(req.file.originalname);
+      fileName = `${id}${fileExtension}`;
+      const newFilePath = path.join(userDir, fileName);
 
-    // 3. Save the updated entity
+      if (oldImagePath && fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+
+      fs.writeFileSync(newFilePath, req.file.buffer);
+      updateData.image = fileName;
+    } else if (req.body.image === null || req.body.image === undefined || req.body.image === "" || req.body.image === "null") {
+       // Only delete if explicitly requested to be empty
+       if (req.body.image === null || req.body.image === "null" || req.body.image === "") {
+          if (oldImagePath && fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+          updateData.image = null;
+       }
+    }
+
+    const updated = repo.merge(data, updateData);
     await repo.save(updated);
 
     return res.status(200).json({ 
@@ -152,8 +218,17 @@ exports.userUpdate = async (req, res) => {
       data: updated
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
+    if (fileName) {
+      const filePathToClean = path.join(userDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+    next(err);
   }
 };
 

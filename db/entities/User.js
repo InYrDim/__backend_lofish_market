@@ -55,6 +55,11 @@ module.exports = new EntitySchema({
       type: 'json',
       nullable: true,
     },
+    image: {
+      type: 'varchar',
+      length: 255,
+      nullable: true,
+    },
   },
   relations: {
     role: {

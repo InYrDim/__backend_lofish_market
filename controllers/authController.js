@@ -108,6 +108,7 @@ exports.login = async (req, res) => {
 				role: user.role.id,
 				username: user.username,
 				email: user.email,
+				image: user.image,
 				market_id: user.market?.id || null,
 				login: true,
 				hasPermit: permissionNames,
