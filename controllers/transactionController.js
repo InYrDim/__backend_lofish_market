@@ -152,7 +152,7 @@ exports.sellingList = async (req, res) => {
 		const repo = AppDataSource.getRepository(Selling);
 		const detailRepo = AppDataSource.getRepository(SellingProductDetail);
 
-		const {
+		let {
 			page = 1,
 			limit = 20,
 			start_date,
@@ -161,6 +161,15 @@ exports.sellingList = async (req, res) => {
 			user_id,
 			market_id,
 		} = req.query;
+
+		// Scoped user check (SPVR)
+		const isSPVR = req.user?.role?.id === 'SPVR' || req.user?.role === 'SPVR';
+		if (isSPVR) {
+			if (!req.user.market_id) {
+				return res.status(403).json({ message: "Forbidden: Market ID is required for SPVR role." });
+			}
+			market_id = req.user.market_id;
+		}
 
 		let query = repo
 			.createQueryBuilder("selling")
@@ -329,7 +338,16 @@ exports.sellingSoftDelete = async (req, res) => {
 exports.sellingProductDetailList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(SellingProductDetail);
-		const { selling_id, market_id, user_id, stock_id, price_id } = req.query;
+		let { selling_id, market_id, user_id, stock_id, price_id, start_date, end_date } = req.query;
+
+		// Scoped user check (SPVR)
+		const isSPVR = req.user?.role?.id === 'SPVR' || req.user?.role === 'SPVR';
+		if (isSPVR) {
+			if (!req.user.market_id) {
+				return res.status(403).json({ message: "Forbidden: Market ID is required for SPVR role." });
+			}
+			market_id = req.user.market_id;
+		}
 
 		let query = repo
 			.createQueryBuilder("detail")
@@ -356,6 +374,14 @@ exports.sellingProductDetailList = async (req, res) => {
 		if (price_id) {
 			query = query.andWhere("detail.price_id = :price_id", { price_id });
 		}
+		if (start_date) {
+			query = query.andWhere("selling.created_at >= :start_date", { start_date });
+		}
+		if (end_date) {
+			query = query.andWhere("selling.created_at <= :end_date", { end_date });
+		}
+
+
 
 		const data = await query.getMany();
 

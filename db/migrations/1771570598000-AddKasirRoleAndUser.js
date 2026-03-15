@@ -13,37 +13,25 @@ module.exports = class AddKasirRoleAndUser1771570598000 {
         console.log('Menjalankan migrasi: Menambahkan role KSR dan user kasir1...');
 
         // 1. Data Roles yang akan di-seed
-        const kasirRole = {
-            id: "KSR", 
-            name: "Kasir",
-            guard_name: "web",
-        };
-
-        await queryRunner.manager
-            .createQueryBuilder()
-            .insert()
-            .into('role')
-            .values(kasirRole)
-            .execute();
+        await queryRunner.query(
+            "INSERT INTO `role` (`id`, `name`, `guard_name`) VALUES (?, ?, ?)",
+            ["KSR", "Kasir", "web"]
+        );
 
         // 2. Data User kasir1
         const hashedPasswordKasir = bcrypt.hashSync("kasir123", 10);
         
-        const kasirUser = {
-            id: "KSR001",
-            name: "Kasir 1",
-            username: "kasir1",
-            email: "kasir1@lofish.market",
-            password: hashedPasswordKasir,
-            role: "KSR"
-        };
-
-        await queryRunner.manager
-            .createQueryBuilder()
-            .insert()
-            .into('user')
-            .values(kasirUser)
-            .execute();
+        await queryRunner.query(
+            "INSERT INTO `user` (`id`, `name`, `username`, `email`, `password`, `role_id`) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                "KSR001",
+                "Kasir 1",
+                "kasir1",
+                "kasir1@lofish.market",
+                hashedPasswordKasir,
+                "KSR"
+            ]
+        );
 
         console.log('Migrasi Kasir selesai.');
     }

@@ -10,6 +10,12 @@ const Supplier = require('../db/entities/Supplier');
 const HasPermit = require('../db/entities/HasPermit');
 
 const generateId = require('../middleware/generateId');
+const bcrypt = require('bcrypt');
+const path = require('path');
+const fs = require('fs');
+
+const baseDir = path.join(process.cwd(), "upload");
+const userDir = path.join(baseDir, "user");
 
 // User
 exports.userList = async (req, res) => {
@@ -17,13 +23,19 @@ exports.userList = async (req, res) => {
     const userRepo = AppDataSource.getRepository(User);
     const users = await userRepo.createQueryBuilder('user')
     .leftJoinAndSelect('user.role', 'role')
+    .leftJoinAndSelect('user.market', 'market')
     .select([
-        'user.id', 
-        'user.username', 
-        'user.email', 
-        'role.id', 
-        'role.name', // Hanya ambil kolom ini dari role
-        'role.guard_name'
+        'user.id',
+        'user.name',
+        'user.username',
+        'user.email',
+        'role.id',
+        'role.name',
+        'role.guard_name',
+        'market.id',
+        'market.name',
+        'user.permissions',
+        'user.image'
     ])
     .getMany();
     res.json(users);
@@ -45,7 +57,9 @@ exports.userById = async (req, res) => {
       'user.email', 
       'role.id', 
       'role.name',
-      'role.guard_name'
+      'role.guard_name',
+      'user.permissions',
+      'user.image'
     ])
     .where('user.id = :id', { id: id }) // Menambahkan kondisi WHERE yang spesifik ke user.id
     .getOne();
@@ -59,14 +73,51 @@ exports.userById = async (req, res) => {
   }
 };
 
-exports.userCreate = async (req, res) => {
+exports.userCreate = async (req, res, next) => {
+  // --- Setup Path for Manual Storage ---
+  let fileName = null;
+
+  if (!fs.existsSync(userDir)) {
+    try {
+      fs.mkdirSync(userDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
+    }
+  }
+
   try {
     const repo = AppDataSource.getRepository(User);
     const id = generateId(8);
+    const { market_id, role_id, password, permissions, ...rest } = req.body;
+    
+    if (req.file) {
+      const fileExtension = path.extname(req.file.originalname);
+      fileName = `${id}${fileExtension}`;
+      const filePath = path.join(userDir, fileName);
+      fs.writeFileSync(filePath, req.file.buffer);
+    }
+
     const createData = {
       id: id,
-      ...req.body
+      permissions: permissions || null,
+      image: fileName,
+      ...rest
+    };
+
+    if (password) {
+      createData.password = await bcrypt.hash(password, 10);
     }
+
+    if (role_id) {
+      createData.role = { id: role_id };
+    }
+
+    if (market_id) {
+      createData.market = { id: market_id };
+    } else {
+      createData.market = null;
+    }
+
     const data = repo.create(createData);
     await repo.save(data);
 
@@ -75,41 +126,124 @@ exports.userCreate = async (req, res) => {
       data: data
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    if (fileName) {
+      const filePathToClean = path.join(userDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+    next(err);
   }
 };
 
-exports.userUpdate = async (req, res) => {
+exports.userUpdate = async (req, res, next) => {
+  let fileName = null;
+  let oldImagePath = null;
+
+  if (!fs.existsSync(userDir)) {
+    try {
+      fs.mkdirSync(userDir, { recursive: true });
+    } catch (dirError) {
+      return next(dirError);
+    }
+  }
+
   try {
     const repo = AppDataSource.getRepository(User);
     const id = req.params.id;
 
-    // 1. Find existing
-    const data = await repo.findOne({ where: { id } });
+    const data = await repo.findOne({ where: { id }, relations: ['role'] });
 
     if (!data) {
       return res.status(404).json({ message: 'Data not found' });
     }
 
-    // 2. Merge request body to entity
-    const updated = repo.merge(data, req.body);
+    if (data.id === 'ADMN001' || data.role?.id === 'ADMN') {
+      return res.status(403).json({ message: 'Super Admin account cannot be modified via API' });
+    }
 
-    // 3. Save the updated entity
+    if (data.image) {
+      oldImagePath = path.join(userDir, data.image);
+    }
+
+    const { market_id, role_id, password, permissions, ...rest } = req.body;
+    const updateData = { ...rest };
+
+    if (permissions !== undefined) {
+      updateData.permissions = permissions;
+    }
+
+    if (password) {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
+
+    if (role_id) {
+      updateData.role = { id: role_id };
+    }
+
+    if (market_id !== undefined) {
+      updateData.market = market_id ? { id: market_id } : null;
+    }
+
+    if (req.file) {
+      const fileExtension = path.extname(req.file.originalname);
+      fileName = `${id}${fileExtension}`;
+      const newFilePath = path.join(userDir, fileName);
+
+      if (oldImagePath && fs.existsSync(oldImagePath)) {
+        fs.unlinkSync(oldImagePath);
+      }
+
+      fs.writeFileSync(newFilePath, req.file.buffer);
+      updateData.image = fileName;
+    } else if (req.body.image === null || req.body.image === undefined || req.body.image === "" || req.body.image === "null") {
+       // Only delete if explicitly requested to be empty
+       if (req.body.image === null || req.body.image === "null" || req.body.image === "") {
+          if (oldImagePath && fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+          updateData.image = null;
+       }
+    }
+
+    const updated = repo.merge(data, updateData);
     await repo.save(updated);
 
-    return res.status(200).json({ // Gunakan status 200 untuk update yang berhasil
+    return res.status(200).json({ 
       message: "User updated successfully",
       data: updated
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    if (fileName) {
+      const filePathToClean = path.join(userDir, fileName);
+      try {
+        if (fs.existsSync(filePathToClean)) {
+          fs.unlinkSync(filePathToClean);
+        }
+      } catch (unlinkError) {
+        console.error(`Failed to cleanup file: ${unlinkError.message}`);
+      }
+    }
+    next(err);
   }
 };
 
 exports.userDelete = async (req, res) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const result = await userRepo.delete(req.params.id);
+    const id = req.params.id;
+
+    // Protection for Super Admin
+    const user = await userRepo.findOne({ where: { id }, relations: ['role'] });
+    if (user?.id === 'ADMN001' || user?.role?.id === 'ADMN') {
+      return res.status(403).json({ message: 'Super Admin account cannot be deleted' });
+    }
+
+    const result = await userRepo.delete(id);
 
     if (result.affected === 0) {
       return res.status(404).json({ message: 'User not found' });
@@ -124,7 +258,15 @@ exports.userDelete = async (req, res) => {
 exports.userSoftDelete = async (req, res) => {
   try {
     const userRepo = AppDataSource.getRepository(User);
-    const result = await userRepo.softDelete(req.params.id);
+    const id = req.params.id;
+
+    // Protection for Super Admin
+    const user = await userRepo.findOne({ where: { id }, relations: ['role'] });
+    if (user?.id === 'ADMN001' || user?.role?.id === 'ADMN') {
+      return res.status(403).json({ message: 'Super Admin account cannot be deleted' });
+    }
+
+    const result = await userRepo.softDelete(id);
 
     if (result.affected === 0) {
       return res.status(404).json({ message: 'User not found' });

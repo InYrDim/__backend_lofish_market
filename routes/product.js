@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 
 const productController = require('../controllers/productController');
+const inventoryController = require('../controllers/inventoryController');
 
 const auth = require('../middleware/auth');
 const getMemoryUploader = require('../middleware/uploadFile'); // Import middleware Multer
@@ -16,49 +17,49 @@ router.get('/', function (req, res, next) {
 
 router.get('/product/list', auth(['product']), productController.productList);
 router.get('/product/byid/:id', auth(['product']), productController.productById);
-router.post('/product/create', 
-  auth(['product-edit']), 
-  upload.single('image'), 
+router.post('/product/create',
+  auth(['product-edit']),
+  upload.single('image'),
   productController.productCreate,
   errorHandler
 );
 router.patch('/product/update/:id',
-  auth(['product-edit']), 
-  upload.single('image'),  
+  auth(['product-edit']),
+  upload.single('image'),
   productController.productUpdate,
   errorHandler
 );
 router.delete('/product/delete/:id',
-  auth(['product-edit']),  
+  auth(['product-edit']),
   productController.productDelete,
   errorHandler
 );
 router.delete('/product/soft-delete/:id',
-  auth(['product-edit']),  
+  auth(['product-edit']),
   productController.productSoftDelete
 );
 
 router.get('/service/list', auth(['service']), productController.serviceList);
 router.get('/service/byid/:id', auth(['service']), productController.serviceById);
-router.post('/service/create', 
-  auth(['service-edit']), 
-  upload.single('image'), 
+router.post('/service/create',
+  auth(['service-edit']),
+  upload.single('image'),
   productController.serviceCreate,
   errorHandler
 );
 router.patch('/service/update/:id',
-  auth(['service-edit']), 
-  upload.single('image'),  
+  auth(['service-edit']),
+  upload.single('image'),
   productController.serviceUpdate,
   errorHandler
 );
 router.delete('/service/delete/:id',
-  auth(['service-edit']),  
+  auth(['service-edit']),
   productController.serviceDelete,
   errorHandler
 );
 router.delete('/service/soft-delete/:id',
-  auth(['service-edit']),  
+  auth(['service-edit']),
   productController.serviceSoftDelete
 );
 
@@ -90,20 +91,20 @@ router.delete('/stock-opname/delete/:id', auth(['stock-opname-edit']), productCo
 
 router.get('/so-detail/list', auth(['so-detail']), productController.stockOpnameDetailList);
 router.get('/so-detail/byid/:id', auth(['so-detail']), productController.stockOpnameDetailById);
-router.post('/so-detail/create', 
-  auth(['so-detail-edit']), 
-  upload.single('attachment'), 
+router.post('/so-detail/create',
+  auth(['so-detail-edit']),
+  upload.single('attachment'),
   productController.stockOpnameDetailCreate,
   errorHandler
 );
 router.patch('/so-detail/update/:id',
-  auth(['so-detail-edit']), 
-  upload.single('attachment'),  
+  auth(['so-detail-edit']),
+  upload.single('attachment'),
   productController.stockOpnameDetailUpdate,
   errorHandler
 );
 router.delete('/so-detail/delete/:id',
-  auth(['so-detail-edit']),  
+  auth(['so-detail-edit']),
   productController.stockOpnameDetailDelete,
   errorHandler
 );
@@ -126,5 +127,14 @@ router.post('/category/create', auth(['category-edit']), productController.categ
 router.patch('/category/update/:id', auth(['category-edit']), productController.categoryUpdate);
 router.delete('/category/delete/:id', auth(['category-edit']), productController.categoryDelete);
 
+// Inventory Flow
+router.post('/inventory/receive', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveFromSupplier);
+router.post('/inventory/receive-bulk', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveBulkFromSupplier);
+router.post('/inventory/transfer', auth(['stock-edit']), inventoryController.transferToMarket);
+router.get('/inventory/dashboard', auth(['stock-list']), inventoryController.getInventoryDashboard);
+router.post('/inventory/reject-request', auth(['reject-edit']), upload.single('image_proof'), inventoryController.requestReject, errorHandler);
+router.post('/inventory/reject-approve/:id', auth(['reject-edit']), inventoryController.approveReject);
+router.get('/inventory/reject-list', auth(['reject']), inventoryController.getRejectList);
+router.get('/inventory/purchase-history', auth(['purchase']), inventoryController.getPurchaseHistory);
 
 module.exports = router;

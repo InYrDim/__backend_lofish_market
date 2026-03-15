@@ -51,6 +51,15 @@ module.exports = new EntitySchema({
       type: 'timestamp',
       deleteDate: true,
     },
+    permissions: {
+      type: 'json',
+      nullable: true,
+    },
+    image: {
+      type: 'varchar',
+      length: 255,
+      nullable: true,
+    },
   },
   relations: {
     role: {
@@ -64,6 +73,17 @@ module.exports = new EntitySchema({
       onDelete: 'SET NULL',
       nullable: true,
       eager: true,
+    },
+    market: {
+      type: 'many-to-one',
+      target: 'Profile',
+      joinColumn: {
+        name: 'market_id',
+        referencedColumnName: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      nullable: true,
     },
   },
 });

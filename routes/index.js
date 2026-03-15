@@ -6,6 +6,7 @@ const featureController = require('../controllers/featureController');
 const productController = require('../controllers/productController');
 const transactionController = require('../controllers/transactionController');
 const authController = require('../controllers/authController');
+const auth = require('../middleware/auth');
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -17,12 +18,12 @@ router.post('/login', authController.login);
 router.post('/logout', authController.logout);
 
 // userController
-router.get('/user-list', userController.userList);
-router.post('/user-create', userController.userCreate);
+router.get('/user-list', auth(['user']), userController.userList);
+router.post('/user-create', auth(['user-edit']), userController.userCreate);
 // router.put('/user-update/:id', userController.userUpdate); // update entire data (replace)
-router.patch('/user-update/:id', userController.userUpdate); // update sebagian
-router.get('/user-delete', userController.userDelete);
-router.get('/user-soft-delete/:id', userController.userSoftDelete);
+router.patch('/user-update/:id', auth(['user-edit']), userController.userUpdate); // update sebagian
+router.get('/user-delete/:id', auth(['user-edit']), userController.userDelete);
+router.get('/user-soft-delete/:id', auth(['user-edit']), userController.userSoftDelete);
 
 router.get('/member-list', userController.memberList);
 router.post('/member-create', userController.memberCreate);
@@ -47,7 +48,7 @@ router.get('/permission-delete/:id', userController.permissionDelete);
 
 router.get('/supplier-list', userController.supplierList);
 router.post('/supplier-create', userController.supplierCreate);
-router.patch('/suppllier-update/:id', userController.supplierUpdate);
+router.patch('/supplier-update/:id', userController.supplierUpdate);
 router.get('/supplier-delete/:id', userController.supplierDelete);
 router.get('/supplier-soft-delete/:id', userController.supplierSoftDelete);
 

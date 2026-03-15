@@ -44,6 +44,17 @@ module.exports = new EntitySchema({
     updated_at: {
       type: 'timestamp',
       updateDate: true,
+    },
+    approval_status: {
+      type: 'enum',
+      enum: ['PENDING', 'APPROVED', 'REJECTED'],
+      default: 'APPROVED',
+      comment: 'Status persetujuan reject (PENDING, APPROVED, REJECTED)',
+    },
+    image_proof: {
+      type: 'text',
+      nullable: true,
+      comment: 'URL/path bukti foto barang rusak',
     }
   },
   relations: {
@@ -52,6 +63,18 @@ module.exports = new EntitySchema({
       target: 'User',
       joinColumn: {
         name: 'user_id',
+        referencedColumnName: 'id',
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      nullable: true,
+      eager: true,
+    },
+    approved_by: {
+      type: 'many-to-one',
+      target: 'User',
+      joinColumn: {
+        name: 'approved_by_id',
         referencedColumnName: 'id',
       },
       onUpdate: 'CASCADE',
