@@ -45,6 +45,12 @@ module.exports = (permissions = []) => {
       // 2. Periksa apakah endpoint ini memerlukan izin tertentu (permissions.length > 0)
       if (permissions.length > 0) {
         
+        // Super Admin (ADMN) bypass semua permission check
+        const userRoleId = decoded.role?.id || decoded.role_id;
+        if (userRoleId === 'ADMN') {
+          return next();
+        }
+
         // 3. Cek apakah user memiliki SETIDAKNYA SATU izin yang diperlukan
         const hasRequiredPermission = permissions.some(requiredPermit => 
           userPermissions.includes(requiredPermit)

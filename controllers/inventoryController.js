@@ -5,6 +5,10 @@ const Purchase = require("../db/entities/Purchase");
 const Stock = require("../db/entities/Stock");
 const Reject = require("../db/entities/Reject");
 const Product = require("../db/entities/Product");
+const StockOpname = require("../db/entities/StockOpname");
+const StockOpnameDetail = require("../db/entities/StockOpnameDetail");
+const StockTransfer = require("../db/entities/StockTransfer");
+
 const fs = require('fs');
 const path = require('path');
 
@@ -657,6 +661,388 @@ exports.getPurchaseHistory = async (req, res, next) => {
     } catch (err) {
         console.error("Error fetching purchase history:", err);
         if (next) return next(err);
+        return res.status(500).json({ message: err.message });
+    }
+};
+
+exports.approveStockOpname = async (req, res, next) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+
+        const opname = await queryRunner.manager.findOne(StockOpname, {
+            where: { id },
+            relations: ['market']
+        });
+
+        if (!opname) {
+            const error = new Error("Sesi Stock Opname tidak ditemukan");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        if (opname.status === '2') {
+            const error = new Error("Sesi Stock Opname ini sudah disetujui sebelumnya");
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // 1. Ambil semua detail hitungan
+        const details = await queryRunner.manager.find(StockOpnameDetail, {
+            where: { stockOpname: { id } },
+            relations: ['product']
+        });
+
+        const marketId = opname.market?.id;
+
+        for (const detail of details) {
+            // 2. Cari stok asli di market tersebut
+            let stock = await queryRunner.manager.findOne(Stock, {
+                where: [
+                    { market: { id: marketId }, product: { id: detail.product.id } },
+                    { werehouse: { id: marketId }, product: { id: detail.product.id } }
+                ]
+            });
+
+            if (stock) {
+                // 3. Jika ada selisih kurang, buat record Reject sebagai log
+                const diff = detail.actual_stock - stock.qty;
+                if (diff < 0) {
+                    const rejectId = generateId(16);
+                    const rejectData = {
+                        id: rejectId,
+                        qty: Math.abs(diff),
+                        desc: `Selisih Opname (${opname.id}): ${detail.adjustment_type === '1' ? 'Expired' : detail.adjustment_type === '2' ? 'Broken' : 'Lainnya'}`,
+                        status: '3', // 3 = other
+                        approval_status: 'APPROVED',
+                        approved_by: { id: userId },
+                        stock: { id: stock.id },
+                        unit: stock.unit
+                    };
+                    const reject = queryRunner.manager.create(Reject, rejectData);
+                    await queryRunner.manager.save(Reject, reject);
+                }
+
+                // 4. Update stok utama ke angka fisik
+                stock.qty = detail.actual_stock;
+                await queryRunner.manager.save(Stock, stock);
+            }
+        }
+
+        // 5. Finalisasi status opname
+        opname.status = '2'; // Approved
+        opname.approved_at = new Date();
+        await queryRunner.manager.save(StockOpname, opname);
+
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            message: "Stock Opname berhasil disetujui & stok disinkronisasi",
+            data: opname
+        });
+
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error("Error approving stock opname:", err);
+        if (next) return next(err);
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+// ==========================================
+// STOCK TRANSFER ORDER (3-STATUS FLOW)
+// ==========================================
+
+/**
+ * Buat transfer order baru dari gudang ke outlet.
+ * Stok gudang dikurangi saat dibuat (status: SENDING).
+ */
+exports.createTransferOrder = async (req, res) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const { source_stock_id, target_market_id, product_id, qty, unit, notes } = req.body;
+        const userId = req.user?.id;
+
+        if (!source_stock_id || !target_market_id || !product_id || !qty) {
+            const error = new Error('source_stock_id, target_market_id, product_id, dan qty wajib diisi');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const sourceStock = await queryRunner.manager.findOne(Stock, {
+            where: { id: source_stock_id },
+            relations: ['product', 'werehouse'],
+        });
+
+        if (!sourceStock) {
+            const error = new Error('Stok gudang tidak ditemukan');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const transferQty = parseFloat(qty);
+        if (sourceStock.qty < transferQty) {
+            const error = new Error(`Stok gudang tidak mencukupi. Tersedia: ${sourceStock.qty} ${sourceStock.unit === '1' ? 'kg' : 'ekor'}`);
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Kurangi stok gudang (barang sudah "berangkat")
+        sourceStock.qty -= transferQty;
+        await queryRunner.manager.save(Stock, sourceStock);
+
+        // Buat transfer order
+        const transferId = generateId(16);
+        const transfer = queryRunner.manager.create(StockTransfer, {
+            id: transferId,
+            qty: transferQty,
+            unit: unit || sourceStock.unit || '1',
+            status: 'SENDING',
+            notes: notes || null,
+            source_stock: { id: source_stock_id },
+            target_market: { id: target_market_id },
+            product: { id: product_id },
+            created_by: userId ? { id: userId } : null,
+        });
+        await queryRunner.manager.save(StockTransfer, transfer);
+        await queryRunner.commitTransaction();
+
+        return res.status(201).json({
+            message: 'Transfer order berhasil dibuat',
+            data: { transferId, status: 'SENDING' },
+        });
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error('Error creating transfer order:', err);
+        return res.status(err.statusCode || 500).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+/**
+ * Ambil list transfer orders.
+ * Admin/Manager: semua | GDNG: dari gudang ini | SPVR: ke outlet ini.
+ */
+exports.getTransferOrders = async (req, res) => {
+    try {
+        const userRole = req.user?.role;
+        const userMarketId = req.user?.market_id;
+        const { status } = req.query;
+
+        const repo = AppDataSource.getRepository(StockTransfer);
+        const qb = repo.createQueryBuilder('st')
+            .leftJoinAndSelect('st.source_stock', 'source_stock')
+            .leftJoinAndSelect('source_stock.werehouse', 'werehouse')
+            .leftJoinAndSelect('st.target_market', 'target_market')
+            .leftJoinAndSelect('st.product', 'product')
+            .leftJoinAndSelect('st.created_by', 'created_by')
+            .leftJoinAndSelect('st.verified_by', 'verified_by')
+            .orderBy('st.created_at', 'DESC');
+
+        if (status) {
+            qb.andWhere('st.status = :status', { status });
+        }
+
+        if (userRole === 'SPVR' && userMarketId) {
+            qb.andWhere('st.target_market_id = :marketId', { marketId: userMarketId });
+        } else if (userRole === 'GDNG' && userMarketId) {
+            qb.andWhere('werehouse.id = :marketId', { marketId: userMarketId });
+        }
+
+        const transfers = await qb.getMany();
+
+        return res.status(200).json({
+            message: 'Transfer orders fetched successfully',
+            data: transfers,
+        });
+    } catch (err) {
+        console.error('Error fetching transfer orders:', err);
+        return res.status(500).json({ message: err.message });
+    }
+};
+
+/**
+ * Update status transfer order.
+ * SENDING -> WAITING_VERIFICATION: GDNG/Admin konfirmasi kirim
+ * WAITING_VERIFICATION -> DONE: SPVR verifikasi terima, stok outlet bertambah
+ */
+exports.updateTransferStatus = async (req, res) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const { id } = req.params;
+        const { status, verified_qty, verified_notes } = req.body;
+        const userId = req.user?.id;
+
+        const validTransitions = {
+            SENDING: 'WAITING_VERIFICATION',
+            WAITING_VERIFICATION: 'DONE',
+        };
+
+        const transfer = await queryRunner.manager.findOne(StockTransfer, {
+            where: { id },
+            relations: ['source_stock', 'source_stock.werehouse', 'target_market', 'product'],
+        });
+
+        if (!transfer) {
+            const error = new Error('Transfer order tidak ditemukan');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        const expectedNext = validTransitions[transfer.status];
+        if (!expectedNext || expectedNext !== status) {
+            const error = new Error(`Transisi status tidak valid: ${transfer.status} -> ${status}`);
+            error.statusCode = 400;
+            throw error;
+        }
+
+        transfer.status = status;
+
+        if (status === 'WAITING_VERIFICATION') {
+            transfer.sent_at = new Date();
+        }
+
+        if (status === 'DONE') {
+            const acceptedQty = parseFloat(verified_qty ?? transfer.qty);
+
+            let targetStock = await queryRunner.manager.findOne(Stock, {
+                where: {
+                    market: { id: transfer.target_market.id },
+                    product: { id: transfer.product.id },
+                    unit: transfer.unit,
+                },
+            });
+
+            if (targetStock) {
+                targetStock.qty += acceptedQty;
+                await queryRunner.manager.save(Stock, targetStock);
+            } else {
+                const newStockId = generateId(16);
+                targetStock = queryRunner.manager.create(Stock, {
+                    id: newStockId,
+                    qty: acceptedQty,
+                    unit: transfer.unit,
+                    product: { id: transfer.product.id },
+                    market: { id: transfer.target_market.id },
+                    user: userId ? { id: userId } : null,
+                });
+                await queryRunner.manager.save(Stock, targetStock);
+            }
+
+            transfer.verified_qty = acceptedQty;
+            transfer.verified_notes = verified_notes || null;
+            transfer.verified_at = new Date();
+            transfer.verified_by = userId ? { id: userId } : null;
+        }
+
+        await queryRunner.manager.save(StockTransfer, transfer);
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            message: `Status transfer berhasil diubah ke ${status}`,
+            data: transfer,
+        });
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error('Error updating transfer status:', err);
+        return res.status(err.statusCode || 500).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+/**
+ * Batalkan transfer order (hanya saat SENDING). Stok gudang dikembalikan.
+ */
+exports.cancelTransfer = async (req, res) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const { id } = req.params;
+
+        const transfer = await queryRunner.manager.findOne(StockTransfer, {
+            where: { id },
+            relations: ['source_stock'],
+        });
+
+        if (!transfer) {
+            const error = new Error('Transfer order tidak ditemukan');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        if (transfer.status !== 'SENDING') {
+            const error = new Error(`Transfer hanya bisa dibatalkan saat status SENDING. Status saat ini: ${transfer.status}`);
+            error.statusCode = 400;
+            throw error;
+        }
+
+        if (transfer.source_stock) {
+            transfer.source_stock.qty += transfer.qty;
+            await queryRunner.manager.save(Stock, transfer.source_stock);
+        }
+
+        transfer.status = 'CANCELLED';
+        await queryRunner.manager.save(StockTransfer, transfer);
+        await queryRunner.commitTransaction();
+
+        return res.status(200).json({
+            message: 'Transfer order dibatalkan dan stok gudang dikembalikan',
+            data: { id: transfer.id, status: 'CANCELLED' },
+        });
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error('Error cancelling transfer:', err);
+        return res.status(err.statusCode || 500).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+/**
+ * Ambil detail lengkap transfer untuk keperluan cetak laporan.
+ */
+exports.getTransferReport = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const repo = AppDataSource.getRepository(StockTransfer);
+
+        const transfer = await repo.createQueryBuilder('st')
+            .leftJoinAndSelect('st.source_stock', 'source_stock')
+            .leftJoinAndSelect('source_stock.werehouse', 'werehouse')
+            .leftJoinAndSelect('st.target_market', 'target_market')
+            .leftJoinAndSelect('st.product', 'product')
+            .leftJoinAndSelect('st.created_by', 'created_by')
+            .leftJoinAndSelect('st.verified_by', 'verified_by')
+            .where('st.id = :id', { id })
+            .getOne();
+
+        if (!transfer) {
+            return res.status(404).json({ message: 'Transfer order tidak ditemukan' });
+        }
+
+        return res.status(200).json({
+            message: 'Transfer report fetched successfully',
+            data: transfer,
+        });
+    } catch (err) {
+        console.error('Error fetching transfer report:', err);
         return res.status(500).json({ message: err.message });
     }
 };

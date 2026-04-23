@@ -112,7 +112,7 @@ exports.userCreate = async (req, res, next) => {
       createData.role = { id: role_id };
     }
 
-    if (market_id) {
+    if (market_id && market_id !== 'null') {
       createData.market = { id: market_id };
     } else {
       createData.market = null;
@@ -156,7 +156,7 @@ exports.userUpdate = async (req, res, next) => {
     const repo = AppDataSource.getRepository(User);
     const id = req.params.id;
 
-    const data = await repo.findOne({ where: { id }, relations: ['role'] });
+    const data = await repo.findOne({ where: { id }, relations: ['role', 'market'] });
 
     if (!data) {
       return res.status(404).json({ message: 'Data not found' });
@@ -185,10 +185,6 @@ exports.userUpdate = async (req, res, next) => {
       updateData.role = { id: role_id };
     }
 
-    if (market_id !== undefined) {
-      updateData.market = market_id ? { id: market_id } : null;
-    }
-
     if (req.file) {
       const fileExtension = path.extname(req.file.originalname);
       fileName = `${id}${fileExtension}`;
@@ -211,7 +207,31 @@ exports.userUpdate = async (req, res, next) => {
     }
 
     const updated = repo.merge(data, updateData);
+
+    if (role_id) {
+       updated.role = { id: role_id };
+    }
+
+    if (market_id !== undefined) {
+      updated.market = (market_id && market_id !== 'null') ? { id: market_id } : null;
+    }
+
     await repo.save(updated);
+
+    if (market_id !== undefined) {
+      // Force relation update if TypeORM's save ignores the object mutation
+      await repo.createQueryBuilder()
+        .update(User)
+        .set({ market: (market_id && market_id !== 'null') ? market_id : null })
+        .where("id = :id", { id: updated.id })
+        .execute();
+      
+      // Reload updated data to return correctly
+      const reloaded = await repo.findOne({ where: { id: updated.id }, relations: ['role', 'market'] });
+      if (reloaded) {
+        Object.assign(updated, reloaded);
+      }
+    }
 
     return res.status(200).json({ 
       message: "User updated successfully",
