@@ -29,11 +29,13 @@ exports.userList = async (req, res) => {
         'user.name',
         'user.username',
         'user.email',
+        'user.role_id',
         'role.id',
         'role.name',
         'role.guard_name',
         'market.id',
         'market.name',
+        'user.market_id',
         'user.permissions',
         'user.image'
     ])
@@ -51,15 +53,20 @@ exports.userById = async (req, res) => {
     const id = req.params.id;
     const data = await userRepo.createQueryBuilder('user')
     .leftJoinAndSelect('user.role', 'role')
+    .leftJoinAndSelect('user.market', 'market')
     .select([
       'user.id', 
       'user.username', 
       'user.email', 
+      'user.role_id',
       'role.id', 
       'role.name',
       'role.guard_name',
+      'market.id',
+      'market.name',
       'user.permissions',
-      'user.image'
+      'user.image',
+      'user.market_id'
     ])
     .where('user.id = :id', { id: id }) // Menambahkan kondisi WHERE yang spesifik ke user.id
     .getOne();
@@ -112,11 +119,9 @@ exports.userCreate = async (req, res, next) => {
       createData.role = { id: role_id };
     }
 
-    if (market_id && market_id !== 'null') {
-      createData.market = { id: market_id };
-    } else {
-      createData.market = null;
-    }
+    const mId = (market_id && market_id !== 'null') ? market_id : null;
+    createData.market_id = mId;
+    createData.market = mId ? { id: mId } : null;
 
     const data = repo.create(createData);
     await repo.save(data);
@@ -208,34 +213,39 @@ exports.userUpdate = async (req, res, next) => {
 
     const updated = repo.merge(data, updateData);
 
+    // Set relations and IDs explicitly after merge
     if (role_id) {
-       updated.role = { id: role_id };
+      updated.role = { id: role_id };
     }
 
     if (market_id !== undefined) {
-      updated.market = (market_id && market_id !== 'null') ? { id: market_id } : null;
+      const mId = (market_id && market_id !== 'null') ? market_id : null;
+      updated.market_id = mId;
+      updated.market = mId ? { id: mId } : null;
     }
 
     await repo.save(updated);
 
-    if (market_id !== undefined) {
-      // Force relation update if TypeORM's save ignores the object mutation
+    // Extra safety: Explicitly update the columns via QueryBuilder to bypass any TypeORM relation quirks
+    const rawUpdate = {};
+    if (role_id) rawUpdate.role_id = role_id;
+    if (market_id !== undefined) rawUpdate.market_id = (market_id && market_id !== 'null') ? market_id : null;
+
+    if (Object.keys(rawUpdate).length > 0) {
       await repo.createQueryBuilder()
         .update(User)
-        .set({ market: (market_id && market_id !== 'null') ? market_id : null })
+        .set(rawUpdate)
         .where("id = :id", { id: updated.id })
         .execute();
-      
-      // Reload updated data to return correctly
-      const reloaded = await repo.findOne({ where: { id: updated.id }, relations: ['role', 'market'] });
-      if (reloaded) {
-        Object.assign(updated, reloaded);
-      }
     }
+
+    // Reload updated data to return correctly with full relations
+    const reloaded = await repo.findOne({ where: { id: updated.id }, relations: ['role', 'market'] });
+    const responseData = reloaded || updated;
 
     return res.status(200).json({ 
       message: "User updated successfully",
-      data: updated
+      data: responseData
     });
   } catch (err) {
     if (fileName) {

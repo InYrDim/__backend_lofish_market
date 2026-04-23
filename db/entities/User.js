@@ -60,6 +60,16 @@ module.exports = new EntitySchema({
       length: 255,
       nullable: true,
     },
+    market_id: {
+      type: 'varchar',
+      length: 12,
+      nullable: true,
+    },
+    role_id: {
+      type: 'varchar',
+      length: 8,
+      nullable: true,
+    },
   },
   relations: {
     role: {
