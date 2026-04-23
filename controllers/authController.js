@@ -10,6 +10,57 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const generateId = require("../middleware/generateId");
+const HasPermitRepo = () => AppDataSource.getRepository(HasPermit);
+
+exports.getMe = async (req, res) => {
+	try {
+		const userRepo = AppDataSource.getRepository(User);
+		const user = await userRepo.findOne({
+			where: { id: req.user.id },
+			relations: ['role', 'market'],
+		});
+
+		if (!user) {
+			return res.status(404).json({ message: "User tidak ditemukan" });
+		}
+
+		// Get latest permissions
+		const hasPermit = await HasPermitRepo().find({
+			where: {
+				role: {
+					id: user.role_id || user.role?.id,
+				},
+			},
+		});
+
+		const permissionNames = hasPermit.map((item) => item.permission.name);
+		if (user.permissions && Array.isArray(user.permissions)) {
+			user.permissions.forEach(p => {
+				if (!permissionNames.includes(p)) {
+					permissionNames.push(p);
+				}
+			});
+		}
+
+		res.json({
+			user: {
+				id: user.id,
+				name: user.name,
+				role: user.role?.id || user.role_id,
+				username: user.username,
+				email: user.email,
+				image: user.image,
+				market_id: user.market?.id || user.market_id || null,
+				market: user.market || null,
+				login: true,
+				hasPermit: permissionNames,
+			},
+		});
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({ message: err.message });
+	}
+};
 
 exports.login = async (req, res) => {
 	try {

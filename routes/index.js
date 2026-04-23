@@ -16,6 +16,7 @@ router.get('/', function(req, res, next) {
 // authController
 router.post('/login', authController.login);
 router.post('/logout', authController.logout);
+router.get('/me', auth(), authController.getMe);
 
 // userController
 router.get('/user-list', auth(['user']), userController.userList);
