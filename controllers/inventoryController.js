@@ -383,25 +383,18 @@ exports.getInventoryDashboard = async (req, res) => {
         const outletScopedRoles = ['SPVR', 'GDNG', 'KSR', 'TMBG'];
         const isOutletScoped = outletScopedRoles.includes(userRole);
 
-        let where = {};
-        if (isOutletScoped && userMarketId) {
-            // Supervisor/Gudang/Kasir: only see their assigned outlet's stock
-            where = [
-                { market: { id: userMarketId } },
-                { werehouse: { id: userMarketId } },
-            ];
-        }
-        // Admin/Manager: no filter — see all stock
+        // Scoped users (Supervisor, etc.) are restricted to their assigned market.
+        // Admin/Managers see all items on the dashboard summary.
+        const targetMarketId = isOutletScoped ? userMarketId : null;
 
         const stockRepo = AppDataSource.getRepository(Stock);
-        const stocks = isOutletScoped && userMarketId
-            ? await stockRepo.find({
-                where,
-                relations: ['market', 'werehouse', 'product'],
-              })
-            : await stockRepo.find({
-                relations: ['market', 'werehouse', 'product'],
-              });
+        const stocks = await stockRepo.find({
+            where: targetMarketId ? [
+                { market: { id: targetMarketId } },
+                { werehouse: { id: targetMarketId } },
+            ] : undefined,
+            relations: ['market', 'werehouse', 'product'],
+        });
 
         const marketData = {};
 

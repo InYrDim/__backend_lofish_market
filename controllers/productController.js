@@ -999,27 +999,33 @@ exports.stockList = async (req, res) => {
 		// Also support explicit query param (e.g. admin filtering by outlet)
 		const filterMarketId = req.query.market_id || req.query.warehouse_id || null;
 
-		let data;
-		if (isOutletScoped && userMarketId) {
-			// Scoped users: only their outlet or warehouse
-			data = await repo.find({
-				where: [
-					{ market: { id: userMarketId } },
-					{ werehouse: { id: userMarketId } },
-				],
-				relations: ['product', 'market', 'werehouse'],
-			});
-		} else if (filterMarketId) {
-			// Admin filtering by specific outlet
-			data = await repo.find({
-				where: [
-					{ market: { id: filterMarketId } },
-					{ werehouse: { id: filterMarketId } },
-				],
-				relations: ['product', 'market', 'werehouse'],
-			});
+		// Scoped users (Supervisor, etc.) are restricted to their assigned market.
+		// Admin/Managers can filter by any market.
+		let targetMarketId = null;
+
+		if (isOutletScoped) {
+			targetMarketId = userMarketId; // Take from fresh req.user
 		} else {
-			// Admin/Manager: return all
+			targetMarketId = filterMarketId; // Admin can use query param
+		}
+		console.log(`[stockList] Role: ${userRole}, MarketID: ${userMarketId}, Scoped: ${isOutletScoped}, Target: ${targetMarketId}`);
+		
+		let data;
+		if (targetMarketId) {
+			data = await repo.find({
+				where: [
+					{ market: { id: targetMarketId } },
+					{ werehouse: { id: targetMarketId } },
+				],
+				relations: ['product', 'market', 'werehouse'],
+			});
+			console.log(`[stockList] Found ${data.length} records for target ${targetMarketId}`);
+		} else if (isOutletScoped) {
+			// Scoped user with no market ID: should see nothing for safety
+			console.log(`[stockList] Scoped user ${userRole} has no MarketID, returning empty.`);
+			data = [];
+		} else {
+			// Admin/Manager with no filter: return all
 			data = await repo.find({
 				relations: ['product', 'market', 'werehouse'],
 			});
@@ -1126,7 +1132,7 @@ exports.rejectList = async (req, res) => {
 	}
 };
 
-exports.stockById = async (req, res) => {
+exports.rejectById = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Reject);
 		const id = req.params.id;

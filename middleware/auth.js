@@ -34,13 +34,42 @@ module.exports = (permissions = []) => {
         process.env.JWT_SECRET || "secretKey123"
       );
 
-      // Simpan data user dan izin ke objek request
-      req.user = decoded; 
+      // --- FRESH USER DATA ---
+      // Fetch fresh user data from DB to handle stale assignments (like market_id)
+      const AppDataSource = require('../config/data-source');
+      const User = require('../db/entities/User');
+      const userRepo = AppDataSource.getRepository(User);
+      
+      const freshUser = await userRepo.findOne({
+        where: { id: decoded.id },
+        relations: ['role', 'market']
+      });
+
+      if (!freshUser) {
+        const error = new Error("User record not found in database.");
+        error.status = 401;
+        throw error;
+      }
+
+      const HasPermit = require('../db/entities/HasPermit');
+      const hasPermitRepo = AppDataSource.getRepository(HasPermit);
+      const freshPermits = await hasPermitRepo.find({
+        where: { role: { id: freshUser.role?.id || freshUser.role_id } },
+        relations: ['permission']
+      });
+      const userPermissions = freshPermits.map(p => p.permission.name);
+
+      // Populate req.user with fresh data while keeping original JWT payload fields
+      req.user = { 
+        ...decoded, 
+        role: freshUser.role?.id || freshUser.role_id || decoded.role,
+        role_id: freshUser.role_id || freshUser.role?.id || decoded.role_id,
+        market_id: freshUser.market?.id || freshUser.market_id || null,
+        market: freshUser.market || null,
+        hasPermit: userPermissions
+      };
 
       // --- OTORISASI BERDASARKAN PERMISSION ---
-
-      // 1. Ambil list izin dari payload JWT (misal: ["POS", "DASHBOARD"])
-      const userPermissions = decoded.hasPermit || []; 
 
       // 2. Periksa apakah endpoint ini memerlukan izin tertentu (permissions.length > 0)
       if (permissions.length > 0) {
