@@ -28,4 +28,11 @@ module.exports = new EntitySchema({
       updateDate: true,
     },
   },
+  relations: {
+    hasPermits: {
+      type: 'one-to-many',
+      target: 'HasPermit',
+      inverseSide: 'role',
+    },
+  },
 });

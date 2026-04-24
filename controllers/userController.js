@@ -543,7 +543,9 @@ exports.sessionDeleteExpired = async () => {
 exports.roleList = async (req, res) => {
   try {
     const repo = AppDataSource.getRepository(Role);
-    const data = await repo.find();
+    const data = await repo.find({
+      relations: ['hasPermits', 'hasPermits.permission'],
+    });
     res.json(data);
   } catch (err) {
     console.error(err);
@@ -558,7 +560,8 @@ exports.roleById = async (req, res) => {
     const data = await repo.findOne({
       where: {
         id
-      }
+      },
+      relations: ['hasPermits', 'hasPermits.permission'],
     });
     if (!data) {
       return res.status(404).json({ message: 'Data not found' });
