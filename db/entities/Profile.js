@@ -41,6 +41,11 @@ module.exports = new EntitySchema({
       type: 'int',
       default: 0,
     },
+    type: {
+      type: 'enum',
+      enum: ['GUDANG', 'OUTLET'],
+      default: "'OUTLET'",
+    },
     phone_number: {
       type: 'varchar',
       length: 20,
