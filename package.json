@@ -9,7 +9,9 @@
     "migration": "npm run typeorm migration:run",
     "migration:generate": "npm run typeorm migration:generate -- --outputJs",
     "migration:revert": "npm run typeorm migration:revert",
-    "migration:create": "npm run typeorm:create migration:create  -- --outputJs"
+    "migration:create": "npm run typeorm:create migration:create  -- --outputJs",
+    "seeder:create": "npm run typeorm:create migration:create ./db/seeder/$npm_config_name -- --outputJs",
+    "seeder:run": "npm run typeorm:create -- migration:run -d ./config/typeorm-seeder-cli.js"
   },
   "dependencies": {
     "@scalar/express-api-reference": "^0.8.40",
