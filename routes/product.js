@@ -18,8 +18,8 @@ router.get('/', function (req, res, next) {
 // Primary entity (Product) - needs /product/product prefix
 router.get('/product/list', auth(['product']), productController.productList);
 router.get('/product/byid/:id', auth(['product']), productController.productById);
-router.post('/product/create', auth(['product-edit']), productController.productCreate);
-router.put('/product/update/:id', auth(['product-edit']), productController.productUpdate);
+router.post('/product/create', auth(['product-edit']), upload.single('image'), productController.productCreate);
+router.put('/product/update/:id', auth(['product-edit']), upload.single('image'), productController.productUpdate);
 router.delete('/product/delete/:id', auth(['product-edit']), productController.productDelete);
 router.delete('/product/soft-delete/:id', auth(['product-edit']), productController.productSoftDelete);
 
@@ -44,8 +44,8 @@ router.delete('/size/delete/:id', auth(['product-edit']), productController.size
 // Service routes
 router.get('/service/list', auth(['product']), productController.serviceList);
 router.get('/service/byid/:id', auth(['product']), productController.serviceById);
-router.post('/service/create', auth(['product-edit']), productController.serviceCreate);
-router.put('/service/update/:id', auth(['product-edit']), productController.serviceUpdate);
+router.post('/service/create', auth(['product-edit']), upload.single('image'), productController.serviceCreate);
+router.put('/service/update/:id', auth(['product-edit']), upload.single('image'), productController.serviceUpdate);
 router.delete('/service/delete/:id', auth(['product-edit']), productController.serviceDelete);
 
 // Product Price Mapping

@@ -7,6 +7,8 @@ const productController = require('../controllers/productController');
 const transactionController = require('../controllers/transactionController');
 const authController = require('../controllers/authController');
 const auth = require('../middleware/auth');
+const getMemoryUploader = require('../middleware/uploadFile');
+const upload = getMemoryUploader();
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -20,9 +22,9 @@ router.get('/me', auth(), authController.getMe);
 
 // userController
 router.get('/user-list', auth(['user']), userController.userList);
-router.post('/user-create', auth(['user-edit']), userController.userCreate);
+router.post('/user-create', auth(['user-edit']), upload.single('image'), userController.userCreate);
 // router.put('/user-update/:id', userController.userUpdate); // update entire data (replace)
-router.patch('/user-update/:id', auth(['user-edit']), userController.userUpdate); // update sebagian
+router.patch('/user-update/:id', auth(['user-edit']), upload.single('image'), userController.userUpdate); // update sebagian
 router.get('/user-delete/:id', auth(['user-edit']), userController.userDelete);
 router.get('/user-soft-delete/:id', auth(['user-edit']), userController.userSoftDelete);
 
@@ -112,8 +114,8 @@ router.patch('/stock-opname-update/:id', productController.stockOpnameUpdate);
 router.get('/stock-opname-delete/:id', productController.stockOpnameDelete);
 
 router.get('/stock-opname-detail-list', productController.stockOpnameDetailList);
-router.post('/stock-opname-detail-create', productController.stockOpnameDetailCreate);
-router.patch('/stock-opname-detail-update/:id', productController.stockOpnameDetailUpdate);
+router.post('/stock-opname-detail-create', upload.single('attachment'), productController.stockOpnameDetailCreate);
+router.patch('/stock-opname-detail-update/:id', upload.single('attachment'), productController.stockOpnameDetailUpdate);
 router.get('/stock-opname-detail-delete/:id', productController.stockOpnameDetailDelete);
 
 router.get('/price-list', productController.priceList);
@@ -122,14 +124,14 @@ router.patch('/price-update/:id', productController.priceUpdate);
 router.get('/price-delete/:id', productController.priceDelete);
 
 router.get('/product-list', productController.productList);
-router.post('/product-create', productController.productCreate);
-router.patch('/product-update/:id', productController.productUpdate);
+router.post('/product-create', upload.single('image'), productController.productCreate);
+router.patch('/product-update/:id', upload.single('image'), productController.productUpdate);
 router.get('/product-delete/:id', productController.productDelete);
 router.get('/product-soft-delete/:id', productController.productSoftDelete);
 
 router.get('/service-list', productController.serviceList);
-router.post('/service-create', productController.serviceCreate);
-router.patch('/service-update/:id', productController.serviceUpdate);
+router.post('/service-create', upload.single('image'), productController.serviceCreate);
+router.patch('/service-update/:id', upload.single('image'), productController.serviceUpdate);
 router.get('/service-delete/:id', productController.serviceDelete);
 router.get('/service-soft-delete/:id', productController.serviceSoftDelete);
 

@@ -31,3 +31,12 @@ For any AI Agent operating in this repository, **when dealing with database crea
 1. Always refresh the schema reference by executing `node scripts/dump_schema_to_md.js`.
 2. Do not attempt to guess or rely solely on TypeORM entity definitions for the source of truth, as migrations may have made direct structural alterations.
 3. Read the generated output from `DATABASE_SCHEMA.md` in the backend folder to get the 100% accurate, up-to-date representation of tables, foreign keys, columns, types, and length.
+
+## Routing Guidelines
+
+To maintain a clean and modular architecture, follow these rules for routing:
+
+1. **Production Routes**: All production routes must be defined in module-specific files within the `routes/` directory (e.g., `routes/product.js`, `routes/user.js`).
+2. **Mounting**: Ensure module-specific routers are correctly mounted with appropriate prefixes in `app.js`.
+3. **Legacy/Testing Routes**: The file `routes/index.js` is reserved **only for testing** or legacy support. **Do not** add production-level logic or primary entity routes to this file.
+4. **Multipart Parsing**: For any route that expects `multipart/form-data` (e.g., for image uploads), you **must** include the Multer middleware (e.g., `upload.single('image')`) to ensure `req.body` is correctly parsed.
