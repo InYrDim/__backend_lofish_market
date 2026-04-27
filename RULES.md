@@ -24,3 +24,10 @@ npm run seeder:run
 ```
 
 This uses a dedicated configuration (`config/typeorm-seeder-cli.js`) which isolates seeder execution from main schema migrations by recording them in a separate `seeders` table.
+
+## AI Agent Instructions: Database Schema & Migrations
+
+For any AI Agent operating in this repository, **when dealing with database creation, modifications, or interpreting the schema**:
+1. Always refresh the schema reference by executing `node scripts/dump_schema_to_md.js`.
+2. Do not attempt to guess or rely solely on TypeORM entity definitions for the source of truth, as migrations may have made direct structural alterations.
+3. Read the generated output from `DATABASE_SCHEMA.md` in the backend folder to get the 100% accurate, up-to-date representation of tables, foreign keys, columns, types, and length.
