@@ -52,7 +52,7 @@ async function seed() {
 
   // Insert test Stock for the market so the supervisor can reject some
   await connection.execute(`
-    INSERT IGNORE INTO stock (id, qty, market_id, werehouse_id, product_id)
+    INSERT IGNORE INTO stock (id, qty, market_id, warehouse_id, product_id)
     VALUES ('TST_STK', 50, 'TEST_MKT', NULL, 'TST_PROD')
   `);
 

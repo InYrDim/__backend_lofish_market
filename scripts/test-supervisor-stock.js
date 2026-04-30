@@ -83,22 +83,22 @@ async function test() {
     data = await repo.find({
       where: [
         { market: { id: targetMarketId } },
-        { werehouse: { id: targetMarketId } },
+        { warehouse: { id: targetMarketId } },
       ],
-      relations: ['product', 'market', 'werehouse'],
+      relations: ['product', 'market', 'warehouse'],
     });
   } else if (isOutletScoped) {
     data = [];
   } else {
     data = await repo.find({
-      relations: ['product', 'market', 'werehouse'],
+      relations: ['product', 'market', 'warehouse'],
     });
   }
 
   console.log('📦 Stock Data Found:', data.length, 'records');
   if (data.length > 0) {
     data.forEach(stock => {
-      console.log(`   - ${stock.product?.name || 'Unknown'}: ${stock.qty} ${stock.unit === '1' ? 'KG' : 'EKOR'} @ ${stock.market?.name || stock.werehouse?.name || 'Unknown'}`);
+      console.log(`   - ${stock.product?.name || 'Unknown'}: ${stock.qty} ${stock.unit === '1' ? 'KG' : 'EKOR'} @ ${stock.market?.name || stock.warehouse?.name || 'Unknown'}`);
     });
   } else {
     console.log('   ❌ No stock found!');

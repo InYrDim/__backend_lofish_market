@@ -23,7 +23,7 @@ exports.receiveFromSupplier = async (req, res) => {
     try {
         const {
             supplier_id,
-            werehouse_id, // GUDANG market ID
+            warehouse_id, // GUDANG market ID
             product_id,
             purchased_qty,
             accepted_qty,
@@ -56,7 +56,7 @@ exports.receiveFromSupplier = async (req, res) => {
             price: parseFloat(price) || 0,
             user: userId ? { id: userId } : null,
             product: { id: product_id },
-            werehouse: { id: werehouse_id },
+            warehouse: { id: warehouse_id },
             supplier: { id: supplier_id },
             unit: unit || '1'
         };
@@ -68,7 +68,7 @@ exports.receiveFromSupplier = async (req, res) => {
         // Cari stock gudang yang sudah ada untuk produk ini
         let existingStock = await queryRunner.manager.findOne(Stock, {
             where: {
-                werehouse: { id: werehouse_id },
+                warehouse: { id: warehouse_id },
                 product: { id: product_id },
                 unit: unit || '1' // Stok dipisahkan berdasarkan satuannya
             }
@@ -85,7 +85,7 @@ exports.receiveFromSupplier = async (req, res) => {
                 qty: parseFloat(accepted_qty),
                 user: userId ? { id: userId } : null,
                 product: { id: product_id },
-                werehouse: { id: werehouse_id },
+                warehouse: { id: warehouse_id },
                 purchase: { id: purchaseId }, // Tautkan dengan purchase ini
                 unit: unit || '1'
             };
@@ -139,7 +139,7 @@ exports.receiveBulkFromSupplier = async (req, res) => {
     try {
         const {
             supplier_id,
-            werehouse_id, // GUDANG market ID
+            warehouse_id, // GUDANG market ID
             items // array of { product_id, purchased_qty, accepted_qty, rejected_qty, reject_reason, price, batch, unit }
         } = req.body;
 
@@ -188,7 +188,7 @@ exports.receiveBulkFromSupplier = async (req, res) => {
                 price: parseFloat(price) || 0,
                 user: userId ? { id: userId } : null,
                 product: { id: product_id },
-                werehouse: { id: werehouse_id },
+                warehouse: { id: warehouse_id },
                 supplier: { id: supplier_id },
                 unit: unit || '1'
             };
@@ -200,7 +200,7 @@ exports.receiveBulkFromSupplier = async (req, res) => {
             // 2. Create/Update Stock record for accepted quantity
             let existingStock = await queryRunner.manager.findOne(Stock, {
                 where: {
-                    werehouse: { id: werehouse_id },
+                    warehouse: { id: warehouse_id },
                     product: { id: product_id },
                     unit: unit || '1'
                 }
@@ -217,7 +217,7 @@ exports.receiveBulkFromSupplier = async (req, res) => {
                     qty: parseFloat(accepted_qty),
                     user: userId ? { id: userId } : null,
                     product: { id: product_id },
-                    werehouse: { id: werehouse_id },
+                    warehouse: { id: warehouse_id },
                     purchase: { id: purchaseId },
                     unit: unit || '1'
                 };
@@ -391,9 +391,9 @@ exports.getInventoryDashboard = async (req, res) => {
         const stocks = await stockRepo.find({
             where: targetMarketId ? [
                 { market: { id: targetMarketId } },
-                { werehouse: { id: targetMarketId } },
+                { warehouse: { id: targetMarketId } },
             ] : undefined,
-            relations: ['market', 'werehouse', 'product'],
+            relations: ['market', 'warehouse', 'product'],
         });
 
         const marketData = {};
@@ -405,9 +405,9 @@ exports.getInventoryDashboard = async (req, res) => {
             if (stock.market && stock.market.id) {
                 locId = stock.market.id;
                 locName = stock.market.name || `Market ${stock.market.id}`;
-            } else if (stock.werehouse && stock.werehouse.id) {
-                locId = stock.werehouse.id;
-                locName = stock.werehouse.name || 'Gudang Utama';
+            } else if (stock.warehouse && stock.warehouse.id) {
+                locId = stock.warehouse.id;
+                locName = stock.warehouse.name || 'Gudang Utama';
             }
 
             if (!marketData[locId]) {
@@ -466,7 +466,7 @@ exports.requestReject = async (req, res, next) => {
         const stock = await queryRunner.manager.findOne(Stock, {
             where: [
                 { market: { id: targetMarketId }, product: { id: product_id }, unit: unit || '1' },
-                { werehouse: { id: targetMarketId }, product: { id: product_id }, unit: unit || '1' }
+                { warehouse: { id: targetMarketId }, product: { id: product_id }, unit: unit || '1' }
             ]
         });
 
@@ -535,14 +535,14 @@ exports.getRejectList = async (req, res, next) => {
         if (isOutletScoped && userMarketId) {
             where = [
                 { stock: { market: { id: userMarketId } } },
-                { stock: { werehouse: { id: userMarketId } } }
+                { stock: { warehouse: { id: userMarketId } } }
             ];
         }
 
         const rejectRepo = AppDataSource.getRepository(Reject);
         const rejects = await rejectRepo.find({
             where,
-            relations: ['user', 'approved_by', 'stock', 'stock.product', 'stock.market', 'stock.werehouse'],
+            relations: ['user', 'approved_by', 'stock', 'stock.product', 'stock.market', 'stock.warehouse'],
             order: { created_at: 'DESC' }
         });
 
@@ -643,7 +643,7 @@ exports.getPurchaseHistory = async (req, res, next) => {
             where: {
                 created_at: MoreThanOrEqual(thirtyDaysAgo)
             },
-            relations: ['product', 'supplier', 'werehouse'],
+            relations: ['product', 'supplier', 'warehouse'],
             order: { created_at: 'DESC' }
         });
 
@@ -697,7 +697,7 @@ exports.approveStockOpname = async (req, res, next) => {
             let stock = await queryRunner.manager.findOne(Stock, {
                 where: [
                     { market: { id: marketId }, product: { id: detail.product.id } },
-                    { werehouse: { id: marketId }, product: { id: detail.product.id } }
+                    { warehouse: { id: marketId }, product: { id: detail.product.id } }
                 ]
             });
 
@@ -774,7 +774,7 @@ exports.createTransferOrder = async (req, res) => {
 
         const sourceStock = await queryRunner.manager.findOne(Stock, {
             where: { id: source_stock_id },
-            relations: ['product', 'werehouse'],
+            relations: ['product', 'warehouse'],
         });
 
         if (!sourceStock) {
@@ -836,7 +836,7 @@ exports.getTransferOrders = async (req, res) => {
         const repo = AppDataSource.getRepository(StockTransfer);
         const qb = repo.createQueryBuilder('st')
             .leftJoinAndSelect('st.source_stock', 'source_stock')
-            .leftJoinAndSelect('source_stock.werehouse', 'werehouse')
+            .leftJoinAndSelect('source_stock.warehouse', 'warehouse')
             .leftJoinAndSelect('st.target_market', 'target_market')
             .leftJoinAndSelect('st.product', 'product')
             .leftJoinAndSelect('st.created_by', 'created_by')
@@ -850,7 +850,7 @@ exports.getTransferOrders = async (req, res) => {
         if (userRole === 'SPVR' && userMarketId) {
             qb.andWhere('st.target_market_id = :marketId', { marketId: userMarketId });
         } else if (userRole === 'GDNG' && userMarketId) {
-            qb.andWhere('werehouse.id = :marketId', { marketId: userMarketId });
+            qb.andWhere('warehouse.id = :marketId', { marketId: userMarketId });
         }
 
         const transfers = await qb.getMany();
@@ -887,7 +887,7 @@ exports.updateTransferStatus = async (req, res) => {
 
         const transfer = await queryRunner.manager.findOne(StockTransfer, {
             where: { id },
-            relations: ['source_stock', 'source_stock.werehouse', 'target_market', 'product'],
+            relations: ['source_stock', 'source_stock.warehouse', 'target_market', 'product'],
         });
 
         if (!transfer) {
@@ -1018,7 +1018,7 @@ exports.getTransferReport = async (req, res) => {
 
         const transfer = await repo.createQueryBuilder('st')
             .leftJoinAndSelect('st.source_stock', 'source_stock')
-            .leftJoinAndSelect('source_stock.werehouse', 'werehouse')
+            .leftJoinAndSelect('source_stock.warehouse', 'warehouse')
             .leftJoinAndSelect('st.target_market', 'target_market')
             .leftJoinAndSelect('st.product', 'product')
             .leftJoinAndSelect('st.created_by', 'created_by')

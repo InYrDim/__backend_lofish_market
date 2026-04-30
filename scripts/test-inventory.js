@@ -72,7 +72,7 @@ async function testReceiveStock() {
   
   const payload = {
     supplier_id: TEST_DATA.supplierId,
-    werehouse_id: TEST_DATA.gudangMarketId,
+    warehouse_id: TEST_DATA.gudangMarketId,
     product_id: TEST_DATA.productId,
     purchased_qty: 50,         // 50 kg purchased
     accepted_qty: 48,          // 48 kg accepted (2 kg rejected)
@@ -244,7 +244,7 @@ async function runTests() {
   console.log(`  curl -H "Authorization: Bearer \$TEST_TOKEN" ${API_BASE}/product/inventory/dashboard`);
   console.log(`\n  # Receive stock:`);
   console.log(`  curl -X POST -H "Authorization: Bearer \$TEST_TOKEN" -H "Content-Type: application/json" \\`);
-  console.log(`    -d '{"supplier_id":"SUP001","werehouse_id":"GUDANG","product_id":"PROD001","purchased_qty":100,"accepted_qty":98,"rejected_qty":2,"reject_reason":"rusak","price":25000,"batch":"B001","unit":"1"}' \\`);
+  console.log(`    -d '{"supplier_id":"SUP001","warehouse_id":"GUDANG","product_id":"PROD001","purchased_qty":100,"accepted_qty":98,"rejected_qty":2,"reject_reason":"rusak","price":25000,"batch":"B001","unit":"1"}' \\`);
   console.log(`    ${API_BASE}/product/inventory/receive`);
   console.log(`\n  # Transfer stock:`);
   console.log(`  curl -X POST -H "Authorization: Bearer \$TEST_TOKEN" -H "Content-Type: application/json" \\`);

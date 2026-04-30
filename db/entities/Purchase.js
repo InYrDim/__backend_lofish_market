@@ -72,11 +72,11 @@ module.exports = new EntitySchema({
       nullable: true,
       eager: true,
     },
-    werehouse: {
+    warehouse: {
       type: 'many-to-one',
       target: 'Profile',
       joinColumn: {
-        name: 'werehouse_id',
+        name: 'warehouse_id',
         referencedColumnName: 'id',
       },
       onUpdate: 'CASCADE',

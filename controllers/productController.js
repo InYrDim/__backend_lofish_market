@@ -1015,9 +1015,9 @@ exports.stockList = async (req, res) => {
 			data = await repo.find({
 				where: [
 					{ market: { id: targetMarketId } },
-					{ werehouse: { id: targetMarketId } },
+					{ warehouse: { id: targetMarketId } },
 				],
-				relations: ['product', 'market', 'werehouse'],
+				relations: ['product', 'market', 'warehouse'],
 			});
 			console.log(`[stockList] Found ${data.length} records for target ${targetMarketId}`);
 		} else if (isOutletScoped) {
@@ -1027,7 +1027,7 @@ exports.stockList = async (req, res) => {
 		} else {
 			// Admin/Manager with no filter: return all
 			data = await repo.find({
-				relations: ['product', 'market', 'werehouse'],
+				relations: ['product', 'market', 'warehouse'],
 			});
 		}
 

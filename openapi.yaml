@@ -1854,7 +1854,408 @@ paths:
         "200":
           description: Berhasil
 
-  # ==================== WEBSOCKET (Informational) ====================
+  /warehouse/list:
+    get:
+      tags: [Feature]
+      summary: Daftar gudang
+      description: Mendapatkan daftar semua gudang (warehouses).
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /warehouse/byid/{id}:
+    get:
+      tags: [Feature]
+      summary: Detail gudang
+      description: Mendapatkan detail gudang berdasarkan ID.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID gudang (8 karakter)
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Data tidak ditemukan
+
+  /warehouse/create:
+    post:
+      tags: [Feature]
+      summary: Buat gudang baru
+      description: Membuat gudang (warehouse) baru. Type akan diset otomatis sebagai 'GUDANG'.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "Gudang Pusat"
+                  description: Nama gudang
+                address:
+                  type: string
+                  example: "Jl. Raya No. 123"
+                  description: Alamat gudang
+                city:
+                  type: string
+                  example: "Jakarta"
+                  description: Kota gudang
+                maps:
+                  type: string
+                  example: "https://maps.google.com/..."
+                  description: Link Google Maps
+                timezone:
+                  type: string
+                  example: "Asia/Jakarta"
+                  description: Zona waktu gudang
+                time_dif:
+                  type: integer
+                  example: 0
+                  description: Selisih waktu (dalam jam) relatif terhadap UTC
+                phone_number:
+                  type: string
+                  example: "021-1234567"
+                  description: Nomor telepon gudang
+      responses:
+        "201":
+          description: Gudang berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Warehouse created successfully"
+                  data:
+                    $ref: "#/components/schemas/Profile"
+        "400":
+          description: Request tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /warehouse/update/{id}:
+    patch:
+      tags: [Feature]
+      summary: Update gudang
+      description: Mengupdate data gudang yang ada.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID gudang
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Gudang Utama"
+                  description: Nama gudang
+                address:
+                  type: string
+                  example: "Jl. Raya No. 456"
+                  description: Alamat gudang
+                city:
+                  type: string
+                  example: "Bandung"
+                  description: Kota gudang
+                maps:
+                  type: string
+                  example: "https://maps.google.com/..."
+                  description: Link Google Maps
+                timezone:
+                  type: string
+                  example: "Asia/Jakarta"
+                  description: Zona waktu gudang
+                time_dif:
+                  type: integer
+                  example: 0
+                  description: Selisih waktu (dalam jam)
+                phone_number:
+                  type: string
+                  example: "022-7654321"
+                  description: Nomor telepon gudang
+      responses:
+        "200":
+          description: Gudang berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Warehouse updated successfully"
+                  data:
+                    $ref: "#/components/schemas/Profile"
+        "400":
+          description: Request tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Data tidak ditemukan
+
+  /warehouse/delete/{id}:
+    delete:
+      tags: [Feature]
+      summary: Soft-delete gudang
+      description: Menghapus gudang secara soft-delete (penghapusan logis).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID gudang
+      responses:
+        "200":
+          description: Gudang berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Warehouse soft-deleted successfully"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Data tidak ditemukan
+
+  /outlet/list:
+    get:
+      tags: [Feature]
+      summary: Daftar outlet
+      description: Mendapatkan daftar semua outlet (market).
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /outlet/byid/{id}:
+    get:
+      tags: [Feature]
+      summary: Detail outlet
+      description: Mendapatkan detail outlet berdasarkan ID.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID outlet (8 karakter)
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Data tidak ditemukan
+
+  /outlet/create:
+    post:
+      tags: [Feature]
+      summary: Buat outlet baru
+      description: Membuat outlet (market) baru. Type akan diset otomatis sebagai 'OUTLET'.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "Outlet Lelong"
+                address:
+                  type: string
+                  example: "Jl. Ikan Mas No. 1"
+                city:
+                  type: string
+                  example: "Jakarta"
+      responses:
+        "201":
+          description: Outlet berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Outlet created successfully"
+                  data:
+                    $ref: "#/components/schemas/Profile"
+        "400":
+          description: Request tidak valid
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /outlet/update/{id}:
+    patch:
+      tags: [Feature]
+      summary: Update outlet
+      description: Mengupdate data outlet yang ada.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+      responses:
+        "200":
+          description: Outlet berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Outlet updated successfully"
+                  data:
+                    $ref: "#/components/schemas/Profile"
+        "404":
+          description: Data tidak ditemukan
+
+  /outlet/delete/{id}:
+    delete:
+      tags: [Feature]
+      summary: Soft-delete outlet
+      description: Menghapus outlet secara soft-delete.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Outlet berhasil dihapus
+        "404":
+          description: Data tidak ditemukan
+
+  /outlet/supervisors:
+    get:
+      tags: [Feature]
+      summary: Daftar supervisor
+      description: Mendapatkan daftar user dengan role supervisor (SPVR).
+      responses:
+        "200":
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /outlet/assign-supervisor:
+    post:
+      tags: [Feature]
+      summary: Assign supervisor ke outlet
+      description: Menentukan supervisor untuk outlet tertentu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - outlet_id
+              properties:
+                user_id:
+                  type: string
+                  example: "user123"
+                outlet_id:
+                  type: string
+                  example: "outlet01"
+      responses:
+        "200":
+          description: Supervisor berhasil diassign
+        "404":
+          description: User atau Outlet tidak ditemukan
+
+  # ==================== WEBSOCKET (Informational) ====================  
   /__websocket:
     get:
       tags: [WebSocket]

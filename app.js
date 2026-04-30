@@ -5,7 +5,7 @@ const createError = require("http-errors");
 const express = require("express");
 const path = require("path");
 const cookieParser = require("cookie-parser");
-const logger = require("morgan");
+const morganLogger = require("morgan");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -13,6 +13,7 @@ const fs = require("fs");
 const yaml = require("js-yaml");
 const { apiReference } = require("@scalar/express-api-reference");
 
+const logger = require("./config/logger");
 const AppDataSource = require("./config/data-source");
 const indexRouter = require("./routes/index");
 const userRouter = require("./routes/user");
@@ -20,6 +21,8 @@ const productRouter = require("./routes/product");
 const featureRouter = require("./routes/feature");
 const transactionRouter = require("./routes/transaction");
 const webhookRouter = require("./routes/webhook");
+const warehouseRouter = require("./routes/warehouse");
+const outletRouter = require("./routes/outlet");
 
 // ─── Env Validation ──────────────────────────────────────────────────────────
 
@@ -89,7 +92,7 @@ app.use(
 
 // ─── General Middleware ───────────────────────────────────────────────────────
 
-app.use(logger(IS_PROD ? "combined" : "dev"));
+app.use(morganLogger(IS_PROD ? "combined" : "dev"));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 app.use(cookieParser());
@@ -113,6 +116,8 @@ app.use(`${BASE_ROUTE}/user`, userRouter);
 app.use(`${BASE_ROUTE}/product`, productRouter);
 app.use(`${BASE_ROUTE}/feature`, featureRouter);
 app.use(`${BASE_ROUTE}/transaction`, transactionRouter);
+app.use(`${BASE_ROUTE}/warehouse`, warehouseRouter);
+app.use(`${BASE_ROUTE}/outlet`, outletRouter);
 
 // ─── API Docs (Scalar) ────────────────────────────────────────────────────────
 
@@ -131,11 +136,10 @@ try {
 		}),
 	);
 
-	console.log("📄 API docs available at /api-docs");
+	logger.info("📄 API docs available at /api-docs");
 } catch (err) {
-	console.warn(
-		"⚠️  Could not load openapi.yaml — API docs disabled:",
-		err.message,
+	logger.warn(
+		`⚠️  Could not load openapi.yaml — API docs disabled: ${err.message}`,
 	);
 }
 
@@ -154,7 +158,7 @@ app.use((err, req, res, next) => {
 
 	// Log unexpected server errors
 	if (status >= 500) {
-		console.error("❌ Server error:", err);
+		logger.error("❌ Server error:", err);
 	}
 
 	// JSON response for API routes
@@ -174,24 +178,24 @@ app.use((err, req, res, next) => {
 // ─── Database Init ────────────────────────────────────────────────────────────
 
 AppDataSource.initialize()
-	.then(() => console.log("✅ Database connected (TypeORM)"))
+	.then(() => logger.info("✅ Database connected (TypeORM)"))
 	.catch((err) => {
-		console.error("❌ Database connection failed:", err);
+		logger.error("❌ Database connection failed:", err);
 		process.exit(1); // Don't silently run without a DB
 	});
 
 // ─── Graceful Shutdown ────────────────────────────────────────────────────────
 
 const shutdown = async (signal) => {
-	console.log(`\n${signal} received — shutting down gracefully...`);
+	logger.info(`\n${signal} received — shutting down gracefully...`);
 	try {
 		if (AppDataSource.isInitialized) {
 			await AppDataSource.destroy();
-			console.log("✅ Database connection closed");
+			logger.info("✅ Database connection closed");
 		}
 		process.exit(0);
 	} catch (err) {
-		console.error("❌ Error during shutdown:", err);
+		logger.error("❌ Error during shutdown:", err);
 		process.exit(1);
 	}
 };
