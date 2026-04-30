@@ -43,12 +43,10 @@ module.exports = class SeedSupplier1777255899434 {
         ];
 
         for (const supplier of suppliersToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('supplier')
-                .values(supplier)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`supplier\` (\`id\`, \`corporation\`, \`name\`, \`email\`, \`phone_number\`, \`address\`, \`city\`, \`pos\`, \`bank\`, \`no_rek\`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [supplier.id, supplier.corporation, supplier.name, supplier.email, supplier.phone_number, supplier.address, supplier.city, supplier.pos, supplier.bank, supplier.no_rek]
+            );
         }
 
         console.log('Seeder supplier selesai.');
@@ -59,15 +57,10 @@ module.exports = class SeedSupplier1777255899434 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback supplier');
-        
-        const supplierIds = ["SUP01", "SUP02"];
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('supplier')
-            .where("id IN (:...ids)", { ids: supplierIds })
-            .execute();
-            
+        await queryRunner.query(
+            `DELETE FROM \`supplier\` WHERE \`id\` IN (?, ?)`,
+            ['SUP01', 'SUP02']
+        );
         console.log('Rollback Seeder supplier selesai.');
     }
 

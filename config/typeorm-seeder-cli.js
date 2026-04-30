@@ -10,9 +10,13 @@ module.exports = new DataSource({
   username: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
-  entities: [path.join(__dirname, '../db/entities/*.js')],
+  // No 'entities' here — seeders run raw SQL only and don't need entity metadata.
+  // Including entities can cause TypeORM to evaluate FK relations and trigger
+  // unexpected ON DELETE SET NULL cascades on existing data.
   migrations: [path.join(__dirname, '../db/seeder/*.js')],
-  // Track seeder execution in the default migrations table so we don't rerun old ones
+  // Seeder history is tracked in a dedicated 'seeders' table,
+  // completely separate from the schema 'migrations' table.
+  migrationsTableName: 'seeders',
   synchronize: false,
   logging: true,
 });

@@ -22,12 +22,10 @@ module.exports = class SeedMarket1777255748790 {
         ];
 
         for (const profile of profilesToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('profile')
-                .values(profile)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`profile\` (\`id\`, \`name\`, \`address\`, \`city\`, \`timezone\`, \`time_dif\`, \`phone_number\`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [profile.id, profile.name, profile.address, profile.city, profile.timezone, profile.time_dif, profile.phone_number]
+            );
         }
 
         console.log('Seeder market selesai.');
@@ -38,15 +36,10 @@ module.exports = class SeedMarket1777255748790 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback market (profile)');
-        
-        const profileIds = ["MKT01", "MKT02", "MKT03"];
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('profile')
-            .where("id IN (:...ids)", { ids: profileIds })
-            .execute();
-            
+        await queryRunner.query(
+            `DELETE FROM \`profile\` WHERE \`id\` IN (?, ?, ?)`,
+            ['MKT01', 'MKT02', 'MKT03']
+        );
         console.log('Rollback Seeder market selesai.');
     }
 

@@ -23,12 +23,10 @@ module.exports = class SeedGrade1777254902574 {
         ];
 
         for (const grade of gradesToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('grade')
-                .values(grade)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`grade\` (\`id\`, \`name\`, \`barcode\`) VALUES (?, ?, ?)`,
+                [grade.id, grade.name, grade.barcode]
+            );
         }
 
         console.log('Seeder grade selesai.');
@@ -39,13 +37,10 @@ module.exports = class SeedGrade1777254902574 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback grade');
-        
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('grade')
-            .execute();
-            
+        const ids = ['GR01', 'GR02', 'GR03', 'GR04'];
+        await queryRunner.query(
+            `DELETE FROM \`grade\` WHERE \`id\` IN (?, ?, ?, ?)`, ids
+        );
         console.log('Rollback Seeder grade selesai.');
     }
 

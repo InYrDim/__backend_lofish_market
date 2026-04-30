@@ -44,7 +44,7 @@ module.exports = new EntitySchema({
     type: {
       type: 'enum',
       enum: ['GUDANG', 'OUTLET'],
-      default: "'OUTLET'",
+      default: 'OUTLET',
     },
     phone_number: {
       type: 'varchar',

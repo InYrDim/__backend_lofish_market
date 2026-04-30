@@ -43,12 +43,10 @@ module.exports = class SeedService1777255987528 {
         ];
 
         for (const service of servicesToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('service')
-                .values(service)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`service\` (\`id\`, \`name\`, \`barcode\`, \`unit\`, \`price\`, \`disc\`) VALUES (?, ?, ?, ?, ?, ?)`,
+                [service.id, service.name, service.barcode, service.unit, service.price, service.disc]
+            );
         }
 
         console.log('Seeder service selesai.');
@@ -59,15 +57,10 @@ module.exports = class SeedService1777255987528 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback service');
-        
-        const serviceIds = ["SRV01", "SRV02", "SRV03"];
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('service')
-            .where("id IN (:...ids)", { ids: serviceIds })
-            .execute();
-            
+        await queryRunner.query(
+            `DELETE FROM \`service\` WHERE \`id\` IN (?, ?, ?)`,
+            ['SRV01', 'SRV02', 'SRV03']
+        );
         console.log('Rollback Seeder service selesai.');
     }
 

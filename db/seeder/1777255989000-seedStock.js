@@ -25,12 +25,10 @@ module.exports = class SeedStock1777255989000 {
         ];
 
         for (const stock of stocksToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('stock')
-                .values(stock)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`stock\` (\`id\`, \`product_id\`, \`market_id\`, \`qty\`) VALUES (?, ?, ?, ?)`,
+                [stock.id, stock.product, stock.market, stock.qty]
+            );
         }
 
         console.log('Seeder stock selesai.');
@@ -41,13 +39,10 @@ module.exports = class SeedStock1777255989000 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback stock');
-        
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('stock')
-            .execute();
-            
+        await queryRunner.query(
+            `DELETE FROM \`stock\` WHERE \`id\` IN (?, ?, ?, ?, ?, ?)`,
+            ['STK01', 'STK02', 'STK03', 'STK04', 'STK05', 'STK06']
+        );
         console.log('Rollback Seeder stock selesai.');
     }
 

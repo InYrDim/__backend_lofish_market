@@ -46,12 +46,10 @@ module.exports = class SeedPrice1777255988000 {
         ];
 
         for (const price of pricesToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('price')
-                .values(price)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`price\` (\`id\`, \`selling\`, \`initial\`, \`disc\`, \`product_id\`, \`grade_id\`, \`size_id\`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [price.id, price.selling, price.initial, price.disc, price.product, price.grade, price.size]
+            );
         }
 
         console.log('Seeder price selesai.');
@@ -62,13 +60,10 @@ module.exports = class SeedPrice1777255988000 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback price');
-        
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('price')
-            .execute();
-            
+        await queryRunner.query(
+            `DELETE FROM \`price\` WHERE \`id\` IN (?, ?, ?)`,
+            ['PRC01', 'PRC02', 'PRC03']
+        );
         console.log('Rollback Seeder price selesai.');
     }
 

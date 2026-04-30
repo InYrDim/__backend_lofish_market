@@ -123,7 +123,7 @@ exports.login = async (req, res) => {
 				name: user.name,
 				username: user.username,
 				email: user.email,
-				role: user.role.id,
+				role: user.role?.id || user.role_id,
 				market_id: user.market?.id || null,
 				hasPermit: permissionNames,
 			},
@@ -156,7 +156,7 @@ exports.login = async (req, res) => {
 			user: {
 				id: user.id,
 				name: user.name,
-				role: user.role.id,
+				role: user.role?.id || user.role_id,
 				username: user.username,
 				email: user.email,
 				image: user.image,

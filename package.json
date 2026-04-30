@@ -21,6 +21,8 @@
     "debug": "~2.6.9",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.4.1",
+    "helmet": "^8.1.0",
     "http-errors": "~1.6.3",
     "js-yaml": "^4.1.1",
     "jsonwebtoken": "^9.0.2",

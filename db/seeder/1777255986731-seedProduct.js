@@ -46,12 +46,10 @@ module.exports = class SeedProduct1777255986731 {
         ];
 
         for (const product of productsToSeed) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .insert()
-                .into('product')
-                .values(product)
-                .execute();
+            await queryRunner.query(
+                `INSERT IGNORE INTO \`product\` (\`id\`, \`name\`, \`barcode\`, \`unit\`, \`is_non_stock\`, \`is_show\`, \`category_id\`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [product.id, product.name, product.barcode, product.unit, product.is_non_stock, product.is_show, product.category]
+            );
         }
 
         console.log('Seeder product selesai.');
@@ -62,15 +60,10 @@ module.exports = class SeedProduct1777255986731 {
      */
     async down(queryRunner) {
         console.log('Menjalankan rollback product');
-        
-        const productIds = ["PRD01", "PRD02", "PRD03"];
-        await queryRunner.manager
-            .createQueryBuilder()
-            .delete()
-            .from('product')
-            .where("id IN (:...ids)", { ids: productIds })
-            .execute();
-            
+        await queryRunner.query(
+            `DELETE FROM \`product\` WHERE \`id\` IN (?, ?, ?)`,
+            ['PRD01', 'PRD02', 'PRD03']
+        );
         console.log('Rollback Seeder product selesai.');
     }
 
