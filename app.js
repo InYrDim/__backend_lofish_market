@@ -54,14 +54,14 @@ app.use(
 	}),
 );
 
-const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 200,
-	standardHeaders: true,
-	legacyHeaders: false,
-	message: { error: "Too many requests, please try again later." },
-});
-app.use(BASE_ROUTE, limiter);
+// const limiter = rateLimit({
+// 	windowMs: 15 * 60 * 1000, // 15 minutes
+// 	max: 200,
+// 	standardHeaders: true,
+// 	legacyHeaders: false,
+// 	message: { error: "Too many requests, please try again later." },
+// });
+// app.use(BASE_ROUTE, limiter);
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +97,14 @@ app.use(cookieParser());
 // ─── Static Files ─────────────────────────────────────────────────────────────
 
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/upload", express.static(path.join(__dirname, "upload")));
+app.use(
+	`${BASE_ROUTE}/upload`,
+	(req, res, next) => {
+		res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+		next();
+	},
+	express.static(path.join(__dirname, "upload")),
+);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
