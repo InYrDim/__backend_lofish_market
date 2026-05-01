@@ -46,6 +46,11 @@ module.exports = new EntitySchema({
       type: 'timestamp',
       updateDate: true,
     },
+    image_proof: {
+      type: 'text',
+      nullable: true,
+      comment: 'URL/path bukti foto nota/penerimaan barang',
+    },
   },
   relations: {
     user: {

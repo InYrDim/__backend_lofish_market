@@ -14,6 +14,11 @@ const path = require('path');
 
 const baseDir = path.join(process.cwd(), "upload");
 const rejectDir = path.join(baseDir, "reject");
+const purchaseDir = path.join(baseDir, "purchase");
+
+if (!fs.existsSync(purchaseDir)) {
+    fs.mkdirSync(purchaseDir, { recursive: true });
+}
 
 exports.receiveFromSupplier = async (req, res) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -60,6 +65,15 @@ exports.receiveFromSupplier = async (req, res) => {
             supplier: { id: supplier_id },
             unit: unit || '1'
         };
+
+        // Handle Image Proof Upload
+        if (req.file) {
+            const ext = path.extname(req.file.originalname);
+            const fileName = `purchase-${purchaseId}${ext}`;
+            const filePath = path.join(purchaseDir, fileName);
+            fs.writeFileSync(filePath, req.file.buffer);
+            purchaseData.image_proof = `purchase/${fileName}`;
+        }
 
         const purchase = queryRunner.manager.create(Purchase, purchaseData);
         await queryRunner.manager.save(Purchase, purchase);
@@ -145,7 +159,19 @@ exports.receiveBulkFromSupplier = async (req, res) => {
 
         const userId = req.user?.id || req.body.user_id;
 
-        if (!items || !Array.isArray(items) || items.length === 0) {
+        // Parse items if stringified (happens with FormData)
+        let processedItems = items;
+        if (typeof items === 'string') {
+            try {
+                processedItems = JSON.parse(items);
+            } catch (e) {
+                const error = new Error("Invalid items format. Must be a valid JSON array.");
+                error.statusCode = 400;
+                throw error;
+            }
+        }
+
+        if (!processedItems || !Array.isArray(processedItems) || processedItems.length === 0) {
             const error = new Error("Items array is required and cannot be empty.");
             error.statusCode = 400;
             throw error;
@@ -154,7 +180,7 @@ exports.receiveBulkFromSupplier = async (req, res) => {
         const purchaseIds = [];
         const acceptedStockIds = [];
 
-        for (const item of items) {
+        for (const item of processedItems) {
             const {
                 product_id,
                 purchased_qty,
@@ -192,6 +218,22 @@ exports.receiveBulkFromSupplier = async (req, res) => {
                 supplier: { id: supplier_id },
                 unit: unit || '1'
             };
+
+            // Handle Image Proof Upload (One proof for the entire bulk transaction)
+            if (req.file) {
+                // We use the same file for all items in this bulk, but save it once
+                // The filename will be based on the FIRST purchase ID or a custom bulk ID
+                const ext = path.extname(req.file.originalname);
+                const fileName = `purchase-bulk-${req.file.fieldname}-${Date.now()}${ext}`;
+                const filePath = path.join(purchaseDir, fileName);
+                
+                // Only write once
+                if (!req.bulkFileName) {
+                    fs.writeFileSync(filePath, req.file.buffer);
+                    req.bulkFileName = `purchase/${fileName}`;
+                }
+                purchaseData.image_proof = req.bulkFileName;
+            }
 
             const purchase = queryRunner.manager.create(Purchase, purchaseData);
             await queryRunner.manager.save(Purchase, purchase);

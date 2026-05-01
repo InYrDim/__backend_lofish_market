@@ -59,7 +59,7 @@ router.delete('/price/delete/:id', auth(['product-edit']), productController.pri
 router.get('/stock/list', auth(['stock']), productController.stockList);
 router.get('/stock/byid/:id', auth(['stock']), productController.stockById);
 router.post('/stock/create', auth(['stock-edit']), productController.stockCreate);
-router.patch('/stock/update/:qty', auth(['stock-edit']), productController.stockUpdate);
+router.patch('/stock/update/:id', auth(['stock-edit']), productController.stockUpdate);
 router.delete('/stock/delete/:id', auth(['stock-edit']), productController.stockDelete);
 
 // Stock Opname routes
@@ -70,8 +70,8 @@ router.put('/stock-opname/update/:id', auth(['stock-opname-edit']), productContr
 router.delete('/stock-opname/delete/:id', auth(['stock-opname-edit']), productController.stockOpnameDelete);
 
 // Inventory Flow
-router.post('/inventory/receive', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveFromSupplier);
-router.post('/inventory/receive-bulk', auth(['stock-edit', 'purchase-edit']), inventoryController.receiveBulkFromSupplier);
+router.post('/inventory/receive', auth(['stock-edit', 'purchase-edit']), upload.single('proof'), inventoryController.receiveFromSupplier);
+router.post('/inventory/receive-bulk', auth(['stock-edit', 'purchase-edit']), upload.single('proof'), inventoryController.receiveBulkFromSupplier);
 router.post('/inventory/transfer', auth(['stock-edit']), inventoryController.transferToMarket);
 router.get('/inventory/dashboard', auth(['stock']), inventoryController.getInventoryDashboard);
 router.post('/inventory/reject-request', auth(['reject-edit']), upload.single('image_proof'), inventoryController.requestReject, errorHandler);
