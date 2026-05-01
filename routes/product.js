@@ -74,6 +74,7 @@ router.post('/inventory/receive', auth(['stock-edit', 'purchase-edit']), upload.
 router.post('/inventory/receive-bulk', auth(['stock-edit', 'purchase-edit']), upload.single('proof'), inventoryController.receiveBulkFromSupplier);
 router.post('/inventory/transfer', auth(['stock-edit']), inventoryController.transferToMarket);
 router.get('/inventory/dashboard', auth(['stock']), inventoryController.getInventoryDashboard);
+router.get('/inventory/purchase-history', auth(['purchase']), inventoryController.getPurchaseHistory);
 router.post('/inventory/reject-request', auth(['reject-edit']), upload.single('image_proof'), inventoryController.requestReject, errorHandler);
 router.post('/inventory/reject-approve/:id', auth(['reject-edit']), inventoryController.approveReject);
 router.get('/inventory/reject-list', auth(['reject']), inventoryController.getRejectList);
