@@ -20,3 +20,5 @@
 {"level":"info","message":"✅ Database connected (TypeORM)","service":"lofishmart-backend","timestamp":"2026-05-01 06:04:00"}
 {"level":"info","message":"📄 API docs available at /api-docs","service":"lofishmart-backend","timestamp":"2026-05-01 06:04:07"}
 {"level":"info","message":"✅ Database connected (TypeORM)","service":"lofishmart-backend","timestamp":"2026-05-01 06:04:07"}
+{"level":"info","message":"📄 API docs available at /api-docs","service":"lofishmart-backend","timestamp":"2026-05-01 19:37:33"}
+{"level":"info","message":"✅ Database connected (TypeORM)","service":"lofishmart-backend","timestamp":"2026-05-01 19:37:35"}
