@@ -676,15 +676,22 @@ exports.approveReject = async (req, res, next) => {
 
 exports.getPurchaseHistory = async (req, res, next) => {
     try {
+        const { warehouse_id } = req.query;
         const purchaseRepo = AppDataSource.getRepository(Purchase);
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+        const where = {
+            created_at: MoreThanOrEqual(thirtyDaysAgo)
+        };
+
+        if (warehouse_id && warehouse_id !== 'all') {
+            where.warehouse = { id: warehouse_id };
+        }
+
         // Fetch purchases from the last 30 days
         const purchases = await purchaseRepo.find({
-            where: {
-                created_at: MoreThanOrEqual(thirtyDaysAgo)
-            },
+            where,
             relations: ['product', 'supplier', 'warehouse'],
             order: { created_at: 'DESC' }
         });

@@ -28,7 +28,7 @@ exports.stockOpnameList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(StockOpname);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -316,7 +316,7 @@ exports.priceList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Price);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -453,7 +453,7 @@ exports.productList = async (req, res) => {
 		// const data = await repo.find({ where: { is_show: '1', is_non_stock: '1' } });
 		// TODO: Remove this when we have a way to filter products
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -1031,7 +1031,7 @@ exports.stockList = async (req, res) => {
 			});
 		}
 
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -1125,7 +1125,7 @@ exports.rejectList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Reject);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -1238,7 +1238,7 @@ exports.gradeList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Grade);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -1327,7 +1327,7 @@ exports.sizeList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Size);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -1416,7 +1416,7 @@ exports.categoryList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Category);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
