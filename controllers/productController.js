@@ -749,7 +749,7 @@ exports.serviceList = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Service);
 		const data = await repo.find();
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
@@ -1050,7 +1050,7 @@ exports.stockById = async (req, res) => {
 		if (!data) {
 			return res.status(404).json({ message: "Data not found" });
 		}
-		res.json(data);
+		res.json({ data });
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({ message: err.message });
