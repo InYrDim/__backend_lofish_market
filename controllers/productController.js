@@ -461,7 +461,19 @@ exports.priceUpdate = async (req, res) => {
 			}
 		}
 
-		const updated = repo.merge(data, req.body);
+		const updateData = { ...req.body };
+
+		if (updateData.product) {
+			updateData.product = { id: updateData.product };
+		}
+		if (updateData.grade) {
+			updateData.grade = { id: updateData.grade };
+		}
+		if (updateData.size) {
+			updateData.size = { id: updateData.size };
+		}
+
+		const updated = repo.merge(data, updateData);
 		await repo.save(updated);
 
 		return res.status(200).json({
