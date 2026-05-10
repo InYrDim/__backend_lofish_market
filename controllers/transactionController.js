@@ -11,8 +11,102 @@ const Voucher = require("../db/entities/Voucher");
 const Purchase = require("../db/entities/Purchase");
 const ChartItem = require("../db/entities/CartItem");
 const Stock = require("../db/entities/Stock");
+const Price = require("../db/entities/Price");
 
 const generateId = require("../middleware/generateId");
+
+async function findAndReduceStock(
+	queryRunner,
+	priceId,
+	stockId,
+	marketId,
+	qty,
+) {
+	if (qty <= 0) return true;
+
+	if (priceId) {
+		const price = await queryRunner.manager.findOne(Price, {
+			where: { id: priceId },
+			relations: ["product"],
+		});
+
+		if (price && price.product && price.product.is_non_stock === "2") {
+			return true;
+		}
+	}
+
+	let targetProductId = null;
+	let stocks = [];
+
+	if (stockId) {
+		const stockRecord = await queryRunner.manager.findOne(Stock, {
+			where: { id: stockId },
+		});
+		if (stockRecord) {
+			stocks = [stockRecord];
+		}
+	}
+
+	if (stocks.length === 0 && priceId) {
+		const price = await queryRunner.manager.findOne(Price, {
+			where: { id: priceId },
+			relations: ["product"],
+		});
+
+		if (price && price.product) {
+			targetProductId = price.product.id;
+
+			stocks = await queryRunner.manager.find(Stock, {
+				where: [
+					{ product: { id: targetProductId }, market: { id: marketId } },
+					{ product: { id: targetProductId }, warehouse: { id: marketId } },
+				],
+				order: { qty: "DESC" },
+			});
+		}
+	}
+
+	if (stocks.length === 0) {
+		throw new Error(`Stok tidak ditemukan untuk produk`);
+	}
+
+	const totalAvailable = stocks.reduce((sum, s) => sum + s.qty, 0);
+	if (totalAvailable < qty) {
+		throw new Error(
+			`Stok tidak cukup. Tersedia: ${totalAvailable}, Dibutuhkan: ${qty}`,
+		);
+	}
+
+	let remainingQty = qty;
+	for (const stock of stocks) {
+		if (remainingQty <= 0) break;
+
+		const deductQty = Math.min(stock.qty, remainingQty);
+		stock.qty = stock.qty - deductQty;
+		remainingQty = remainingQty - deductQty;
+
+		await queryRunner.manager.save(Stock, stock);
+	}
+
+	return remainingQty === 0;
+}
+
+async function reduceStockForSelling(queryRunner, sellingId, marketId) {
+	const details = await queryRunner.manager.find(SellingProductDetail, {
+		where: { selling: { id: sellingId } },
+		relations: ["price", "stock"],
+	});
+
+	for (const detail of details) {
+		await findAndReduceStock(
+			queryRunner,
+			detail.price?.id,
+			detail.stock?.id,
+			marketId,
+			detail.qty,
+		);
+	}
+}
 
 // Selling
 exports.createTransaction = async (req, res) => {
@@ -133,17 +227,14 @@ exports.createTransaction = async (req, res) => {
 						detailData,
 					);
 					await queryRunner.manager.save(SellingProductDetail, detail);
-
-					// b. Update Stock (hanya untuk produk fisik)
-					const stock = await queryRunner.manager.findOne(Stock, {
-						where: { id: item.stock_id },
-					});
-					if (stock) {
-						stock.qty = stock.qty - item.qty;
-						await queryRunner.manager.save(Stock, stock);
-					}
 				}
 			}
+		}
+
+		// 3. Kurangi stock HANYA jika transaksi langsung PAID (is_paid = "3")
+		// Untuk QRIS/delayed payment, stock dikurangi nanti ketika is_paid diupdate menjadi "3"
+		if (is_paid === "3") {
+			await reduceStockForSelling(queryRunner, sellingId, market_id);
 		}
 
 		await queryRunner.commitTransaction();
@@ -303,26 +394,50 @@ exports.sellingById = async (req, res) => {
 };
 
 exports.sellingUpdate = async (req, res) => {
+	const queryRunner = AppDataSource.createQueryRunner();
+
 	try {
-		const repo = AppDataSource.getRepository(Selling);
+		await queryRunner.connect();
+		await queryRunner.startTransaction();
+
+		const repo = queryRunner.manager.getRepository(Selling);
 		const id = req.params.id;
+		const newIsPaid = req.body.is_paid;
 
-		// 1. Find existing
-		const data = await repo.findOne({ where: { id } });
+		// 1. Find existing with market relation
+		const existing = await repo.findOne({
+			where: { id },
+			relations: ["market"],
+		});
 
-		if (!data) {
+		if (!existing) {
+			await queryRunner.rollbackTransaction();
 			return res.status(404).json({ message: "Data not found" });
 		}
 
+		const oldIsPaid = existing.is_paid;
+		const marketId = existing.market?.id;
+
 		// 2. Merge request body to entity
-		repo.merge(data, req.body);
+		repo.merge(existing, req.body);
 
 		// 3. Save the updated entity
-		const updated = await repo.save(data);
+		const updated = await repo.save(existing);
 
+		// 4. Jika transisi dari non-"3" ke "3", kurangi stock
+		// (artinya pembayaran baru saja selesai/berhasil)
+		if (newIsPaid === "3" && oldIsPaid !== "3" && marketId) {
+			await reduceStockForSelling(queryRunner, id, marketId);
+		}
+
+		await queryRunner.commitTransaction();
 		res.json(updated);
 	} catch (err) {
+		await queryRunner.rollbackTransaction();
+		console.error(err);
 		res.status(500).json({ message: err.message });
+	} finally {
+		await queryRunner.release();
 	}
 };
 
