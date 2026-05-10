@@ -93,35 +93,55 @@ exports.createTransaction = async (req, res) => {
 		// 2. Process Items
 		if (parsedItems && parsedItems.length > 0) {
 			for (const item of parsedItems) {
-				// a. Create SellingProductDetail
 				const detailId = generateId(24);
 
-				// Example: [{"stock_id": "", "qty": 2, "price_id": "lelQV0FT9y9Ceh1G", "total_price": 20000, "mod_price": 10000, "note": ""}]
-				const detailData = {
-					id: detailId,
-					selling: sellingId, // Relation by ID
-					stock: item.stock || item.stock_id,
-					price: item.price || item.price_id, // Relation Price ID
-					qty: item.qty,
-					mod_price: item.mod_price,
-					total_price: item.total_price,
-					note: item.note,
-					total_weight: item.total_weight,
-				};
+				const isServiceItem = item.type === "SERVICE" || item.service_id;
 
-				const detail = queryRunner.manager.create(
-					SellingProductDetail,
-					detailData,
-				);
-				await queryRunner.manager.save(SellingProductDetail, detail);
+				if (isServiceItem) {
+					// a. Create SellingServiceDetail untuk item layanan
+					const detailData = {
+						id: detailId,
+						selling: sellingId,
+						service: item.service_id || item.price_id,
+						qty: item.qty,
+						mod_price: item.mod_price,
+						total_price: item.total_price,
+						note: item.note,
+					};
 
-				// b. Update Stock
-				const stock = await queryRunner.manager.findOne(Stock, {
-					where: { id: item.stock_id },
-				});
-				if (stock) {
-					stock.qty = stock.qty - item.qty;
-					await queryRunner.manager.save(Stock, stock);
+					const detail = queryRunner.manager.create(
+						SellingServiceDetail,
+						detailData,
+					);
+					await queryRunner.manager.save(SellingServiceDetail, detail);
+				} else {
+					// a. Create SellingProductDetail untuk produk fisik
+					const detailData = {
+						id: detailId,
+						selling: sellingId,
+						stock: item.stock || item.stock_id,
+						price: item.price || item.price_id,
+						qty: item.qty,
+						mod_price: item.mod_price,
+						total_price: item.total_price,
+						note: item.note,
+						total_weight: item.total_weight,
+					};
+
+					const detail = queryRunner.manager.create(
+						SellingProductDetail,
+						detailData,
+					);
+					await queryRunner.manager.save(SellingProductDetail, detail);
+
+					// b. Update Stock (hanya untuk produk fisik)
+					const stock = await queryRunner.manager.findOne(Stock, {
+						where: { id: item.stock_id },
+					});
+					if (stock) {
+						stock.qty = stock.qty - item.qty;
+						await queryRunner.manager.save(Stock, stock);
+					}
 				}
 			}
 		}
