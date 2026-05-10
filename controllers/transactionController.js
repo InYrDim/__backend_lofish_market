@@ -173,6 +173,15 @@ exports.sellingList = async (req, res) => {
 			market_id = req.user.market_id;
 		}
 
+		let query = repo
+			.createQueryBuilder("selling")
+			.leftJoinAndSelect("selling.user", "user")
+			.leftJoinAndSelect("selling.market", "market")
+			.leftJoinAndSelect("selling.payment", "payment")
+			.leftJoinAndSelect("selling.member", "member")
+			.leftJoinAndSelect("selling.voucher", "voucher")
+			.orderBy("selling.created_at", "DESC");
+			
 		// ✅ FIX: Tambahkan waktu untuk mencakup seluruh hari
 		if (start_date) {
 			query = query.andWhere("DATE(selling.created_at) >= :start_date", {
