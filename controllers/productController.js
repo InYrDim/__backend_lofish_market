@@ -386,6 +386,29 @@ exports.priceByProduct = async (req, res) => {
 exports.priceCreate = async (req, res) => {
 	try {
 		const repo = AppDataSource.getRepository(Price);
+		const { product, grade, size } = req.body;
+
+		if (!product || !grade || !size) {
+			return res.status(400).json({
+				message: "Product, grade, and size are required",
+			});
+		}
+
+		const existing = await repo.findOne({
+			where: {
+				product: { id: product },
+				grade: { id: grade },
+				size: { id: size },
+			},
+		});
+
+		if (existing) {
+			return res.status(409).json({
+				message: `Price untuk kombinasi product+grade+size ini sudah ada`,
+				data: existing,
+			});
+		}
+
 		const id = generateId(16);
 		const createData = {
 			id: id,
@@ -408,21 +431,40 @@ exports.priceUpdate = async (req, res) => {
 		const repo = AppDataSource.getRepository(Price);
 		const id = req.params.id;
 
-		// 1. Find existing
-		const data = await repo.findOne({ where: { id } });
+		const data = await repo.findOne({
+			where: { id },
+			relations: ["product", "grade", "size"],
+		});
 
 		if (!data) {
 			return res.status(404).json({ message: "Data not found" });
 		}
 
-		// 2. Merge request body to entity
-		const updated = repo.merge(data, req.body);
+		const updatedProduct = req.body.product || data.product?.id;
+		const updatedGrade = req.body.grade || data.grade?.id;
+		const updatedSize = req.body.size || data.size?.id;
 
-		// 3. Save the updated entity
+		if (updatedProduct && updatedGrade && updatedSize) {
+			const existing = await repo.findOne({
+				where: {
+					product: { id: updatedProduct },
+					grade: { id: updatedGrade },
+					size: { id: updatedSize },
+				},
+			});
+
+			if (existing && existing.id !== id) {
+				return res.status(409).json({
+					message: `Price untuk kombinasi product+grade+size ini sudah ada`,
+					data: existing,
+				});
+			}
+		}
+
+		const updated = repo.merge(data, req.body);
 		await repo.save(updated);
 
 		return res.status(200).json({
-			// Gunakan status 200 untuk update yang berhasil
 			message: "Price updated successfully",
 			data: updated,
 		});
