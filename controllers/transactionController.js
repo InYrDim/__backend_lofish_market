@@ -162,23 +162,16 @@ exports.sellingList = async (req, res) => {
 			market_id,
 		} = req.query;
 
-		// Scoped user check (SPVR)
-		const isSPVR = req.user?.role?.id === 'SPVR' || req.user?.role === 'SPVR';
-		if (isSPVR) {
+		// Scoped user check (SPVR / KSR)
+		const userRole = req.user?.role?.id || req.user?.role;
+		const isSPVR = userRole === 'SPVR';
+		const isKSR = userRole === 'KSR';
+		if (isSPVR || isKSR) {
 			if (!req.user.market_id) {
-				return res.status(403).json({ message: "Forbidden: Market ID is required for SPVR role." });
+				return res.status(403).json({ message: `Forbidden: Market ID is required for ${userRole} role.` });
 			}
 			market_id = req.user.market_id;
 		}
-
-		let query = repo
-			.createQueryBuilder("selling")
-			.leftJoinAndSelect("selling.user", "user")
-			.leftJoinAndSelect("selling.market", "market")
-			.leftJoinAndSelect("selling.payment", "payment")
-			.leftJoinAndSelect("selling.member", "member")
-			.leftJoinAndSelect("selling.voucher", "voucher")
-			.orderBy("selling.created_at", "DESC");
 
 		// ✅ FIX: Tambahkan waktu untuk mencakup seluruh hari
 		if (start_date) {
