@@ -873,6 +873,108 @@ exports.createTransferOrder = async (req, res) => {
 };
 
 /**
+ * Buat multiple transfer order dalam satu transaksi (bulk).
+ * Semua item dalam satu request akan dibuat sebagai transfer order terpisah
+ * namun dalam satu grup (transfer_group) untuk memudahkan tracking.
+ */
+exports.bulkCreateTransferOrder = async (req, res) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const { items, notes } = req.body;
+        const userId = req.user?.id;
+        const transferGroup = require('crypto').randomUUID();
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            const error = new Error('items wajib diisi (array dengan minimal 1 item)');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const targetMarketId = items[0].target_market_id;
+        if (!targetMarketId) {
+            const error = new Error('target_market_id wajib diisi');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Validasi semua item punya target_market_id yang sama
+        for (const item of items) {
+            if (item.target_market_id !== targetMarketId) {
+                const error = new Error('Semua item harus memiliki target_market_id yang sama');
+                error.statusCode = 400;
+                throw error;
+            }
+            if (!item.source_stock_id || !item.product_id || !item.qty) {
+                const error = new Error('source_stock_id, product_id, dan qty wajib diisi untuk setiap item');
+                error.statusCode = 400;
+                throw error;
+            }
+        }
+
+        const transferIds = [];
+
+        for (const item of items) {
+            const { source_stock_id, product_id, qty, unit } = item;
+
+            const sourceStock = await queryRunner.manager.findOne(Stock, {
+                where: { id: source_stock_id },
+                relations: ['product', 'warehouse'],
+            });
+
+            if (!sourceStock) {
+                const error = new Error(`Stok tidak ditemukan untuk product_id: ${product_id}`);
+                error.statusCode = 404;
+                throw error;
+            }
+
+            const transferQty = parseFloat(qty);
+            if (sourceStock.qty < transferQty) {
+                const error = new Error(`Stok tidak mencukupi untuk ${sourceStock.product?.name || product_id}. Tersedia: ${sourceStock.qty} ${sourceStock.unit === '1' ? 'kg' : 'ekor'}`);
+                error.statusCode = 400;
+                throw error;
+            }
+
+            // Kurangi stok
+            sourceStock.qty -= transferQty;
+            await queryRunner.manager.save(Stock, sourceStock);
+
+            // Buat transfer order
+            const transferId = generateId(16);
+            const transfer = queryRunner.manager.create(StockTransfer, {
+                id: transferId,
+                qty: transferQty,
+                unit: unit || sourceStock.unit || '1',
+                status: 'SENDING',
+                notes: notes || null,
+                transfer_group: transferGroup,
+                source_stock: { id: source_stock_id },
+                target_market: { id: targetMarketId },
+                product: { id: product_id },
+                created_by: userId ? { id: userId } : null,
+            });
+            await queryRunner.manager.save(StockTransfer, transfer);
+            transferIds.push(transferId);
+        }
+
+        await queryRunner.commitTransaction();
+
+        return res.status(201).json({
+            message: `${transferIds.length} transfer order berhasil dibuat`,
+            data: { transferIds, count: transferIds.length, status: 'SENDING', transfer_group: transferGroup },
+        });
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        console.error('Error bulk creating transfer orders:', err);
+        return res.status(err.statusCode || 500).json({ message: err.message });
+    } finally {
+        await queryRunner.release();
+    }
+};
+
+/**
  * Ambil list transfer orders.
  * Admin/Manager: semua | GDNG: dari gudang ini | SPVR: ke outlet ini.
  */

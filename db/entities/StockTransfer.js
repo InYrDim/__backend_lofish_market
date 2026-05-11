@@ -52,6 +52,12 @@ module.exports = new EntitySchema({
       nullable: true,
       comment: 'Waktu status berubah ke DONE',
     },
+    transfer_group: {
+      type: 'varchar',
+      length: 36,
+      nullable: true,
+      comment: 'ID grup untuk batch transfer order',
+    },
     created_at: {
       type: 'timestamp',
       createDate: true,

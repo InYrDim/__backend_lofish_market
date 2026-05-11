@@ -82,6 +82,7 @@ router.post('/inventory/stock-opname/approve/:id', auth(['stock-opname-edit']), 
 
 // Stock Transfer Order (3-status flow)
 router.post('/inventory/transfer-order/create', auth(['stock-transfer-edit']), inventoryController.createTransferOrder);
+router.post('/inventory/transfer-order/bulk-create', auth(['stock-transfer-edit']), inventoryController.bulkCreateTransferOrder);
 router.get('/inventory/transfer-orders', auth(['stock-transfer']), inventoryController.getTransferOrders);
 router.patch('/inventory/transfer-order/:id/status', auth(['stock-transfer-edit']), inventoryController.updateTransferStatus);
 router.post('/inventory/transfer-order/:id/cancel', auth(['stock-transfer-edit']), inventoryController.cancelTransfer);
