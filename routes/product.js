@@ -86,6 +86,7 @@ router.post('/inventory/transfer-order/bulk-create', auth(['stock-transfer-edit'
 router.get('/inventory/transfer-orders', auth(['stock-transfer']), inventoryController.getTransferOrders);
 router.patch('/inventory/transfer-order/:id/status', auth(['stock-transfer-edit']), inventoryController.updateTransferStatus);
 router.post('/inventory/transfer-order/:id/cancel', auth(['stock-transfer-edit']), inventoryController.cancelTransfer);
+router.post('/inventory/transfer-order/:id/proof', auth(['stock-transfer-edit']), upload.single('proof'), inventoryController.uploadTransferProof);
 router.get('/inventory/transfer-order/:id/report', auth(['stock-transfer']), inventoryController.getTransferReport);
 
 module.exports = router;

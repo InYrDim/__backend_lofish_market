@@ -58,6 +58,12 @@ module.exports = new EntitySchema({
       nullable: true,
       comment: 'ID grup untuk batch transfer order',
     },
+    image_proof: {
+      type: 'varchar',
+      length: 500,
+      nullable: true,
+      comment: 'Bukti foto penerimaan',
+    },
     created_at: {
       type: 'timestamp',
       createDate: true,

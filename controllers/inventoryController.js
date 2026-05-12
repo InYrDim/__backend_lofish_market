@@ -1159,9 +1159,47 @@ exports.cancelTransfer = async (req, res) => {
     }
 };
 
-/**
- * Ambil detail lengkap transfer untuk keperluan cetak laporan.
- */
+const transferProofDir = path.join(baseDir, "transfers");
+
+if (!fs.existsSync(transferProofDir)) {
+    fs.mkdirSync(transferProofDir, { recursive: true });
+}
+
+exports.uploadTransferProof = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const transfer = await AppDataSource.getRepository(StockTransfer).findOne({
+            where: { id },
+        });
+
+        if (!transfer) {
+            return res.status(404).json({ message: 'Transfer order tidak ditemukan' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'File bukti tidak ditemukan' });
+        }
+
+        const ext = path.extname(req.file.originalname);
+        const fileName = `transfer-proof-${id}${ext}`;
+        const filePath = path.join(transferProofDir, fileName);
+
+        fs.writeFileSync(filePath, req.file.buffer);
+
+        transfer.image_proof = `transfers/${fileName}`;
+        await AppDataSource.getRepository(StockTransfer).save(transfer);
+
+        return res.status(200).json({
+            message: 'Bukti penerimaan berhasil diupload',
+            data: { image_proof: transfer.image_proof },
+        });
+    } catch (err) {
+        console.error('Error uploading transfer proof:', err);
+        return res.status(500).json({ message: err.message });
+    }
+};
+
 exports.getTransferReport = async (req, res) => {
     try {
         const { id } = req.params;
