@@ -19,9 +19,13 @@ module.exports = class SeedStock1777255989000 {
             { id: "STK01", product: "PRD01", market: "MKT01", qty: 100 },
             { id: "STK02", product: "PRD02", market: "MKT01", qty: 100 },
             { id: "STK03", product: "PRD03", market: "MKT01", qty: 100 },
-            { id: "STK04", product: "PRD01", market: "MKT02", qty: 100 },
-            { id: "STK05", product: "PRD02", market: "MKT02", qty: 100 },
-            { id: "STK06", product: "PRD03", market: "MKT02", qty: 100 }
+            { id: "STK04", product: "PRD04", market: "MKT01", qty: 50 },
+            { id: "STK05", product: "PRD05", market: "MKT01", qty: 30 },
+            { id: "STK06", product: "PRD01", market: "MKT02", qty: 100 },
+            { id: "STK07", product: "PRD02", market: "MKT02", qty: 100 },
+            { id: "STK08", product: "PRD03", market: "MKT02", qty: 100 },
+            { id: "STK09", product: "PRD07", market: "MKT02", qty: 20 },
+            { id: "STK10", product: "PRD08", market: "MKT02", qty: 15 },
         ];
 
         for (const stock of stocksToSeed) {
@@ -40,8 +44,7 @@ module.exports = class SeedStock1777255989000 {
     async down(queryRunner) {
         console.log('Menjalankan rollback stock');
         await queryRunner.query(
-            `DELETE FROM \`stock\` WHERE \`id\` IN (?, ?, ?, ?, ?, ?)`,
-            ['STK01', 'STK02', 'STK03', 'STK04', 'STK05', 'STK06']
+            `DELETE FROM \`stock\` WHERE \`id\` LIKE 'STK%'`
         );
         console.log('Rollback Seeder stock selesai.');
     }

@@ -1,5 +1,0 @@
-{"level":"info","message":"📄 API docs available at /api-docs","service":"lofishmart-backend","timestamp":"2026-05-02 23:10:26"}
-{"level":"info","message":"✅ Database connected (TypeORM)","service":"lofishmart-backend","timestamp":"2026-05-02 23:10:27"}
-{"level":"info","message":"\nSIGINT received — shutting down gracefully...","service":"lofishmart-backend","timestamp":"2026-05-02 23:13:03"}
-{"level":"info","message":"📄 API docs available at /api-docs","service":"lofishmart-backend","timestamp":"2026-05-02 23:13:14"}
-{"level":"info","message":"✅ Database connected (TypeORM)","service":"lofishmart-backend","timestamp":"2026-05-02 23:13:14"}
