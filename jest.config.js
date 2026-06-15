@@ -13,6 +13,9 @@ module.exports = {
   // Test file pattern
   testMatch: ['**/tests/**/*.test.js'],
 
+  // Setup files - run before tests
+  setupFiles: ['./tests/jest.setup.js'],
+
   // Verbose output
   verbose: true,
 
@@ -40,9 +43,6 @@ module.exports = {
       statements: 50,
     },
   },
-
-  // Setup files - run before tests
-  setupFilesAfterThisWork: [],
 
   // Clear mocks between tests
   clearMocks: true,
