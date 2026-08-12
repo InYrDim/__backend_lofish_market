@@ -14,6 +14,17 @@ const AppDataSource = new DataSource({
   entities: [path.join(__dirname, '../db/entities/*.js')],
   migrations: [path.join(__dirname, '../db/migrations/*.js')],
   timezone: 'Z',
+  // Connection pool + timeout tuning to avoid stale-connection crashes
+  // ("Got timeout reading communication packets" / "packets out of order").
+  extra: {
+    connectionLimit: 10,
+    connectTimeout: 20000, // ms — wait for the handshake
+    acquireTimeout: 20000, // ms — wait for a free connection from the pool
+    timeout: 20000, // ms — socket inactivity timeout
+    // Validate connections before handing them out so a dead pooled
+    // connection is never reused (prevents "packets out of order").
+    enableKeepAlive: true,
+  },
 });
 
 module.exports = AppDataSource;

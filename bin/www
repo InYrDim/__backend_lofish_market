@@ -8,6 +8,7 @@ var app = require("../app");
 var debug = require("debug")("lofish-market:server");
 var http = require("http");
 var websocket = require("../websocket");
+var AppDataSource = require("../config/data-source");
 
 /**
  * Get port from environment and store in Express.
@@ -34,6 +35,22 @@ server.on("listening", onListening);
  * Initialize WebSocket server
  */
 websocket.init(server);
+
+/**
+ * Initialize the database connection BEFORE accepting traffic.
+ * Without this, TypeORM connects lazily on the first query, which can
+ * surface a slow/stale handshake ("Got timeout reading communication
+ * packets") and crash the process. Initializing up front surfaces any
+ * DB problem at boot instead of mid-request.
+ */
+AppDataSource.initialize()
+	.then(() => {
+		console.log("[info]: ✅ Database connection established");
+	})
+	.catch((err) => {
+		console.error("[error]: ❌ Database connection failed:", err.message);
+		process.exit(1);
+	});
 
 /**
  * Normalize a port into a number, string, or false.
